@@ -70,6 +70,43 @@ def test_provider_error_falls_back_to_extractive():
     assert r["citations"]
 
 
+def test_status_never_leaks_the_key_value(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-secret-value-should-never-appear")
+    st = llm_mod.status()
+    blob = repr(st)
+    assert "sk-secret-value-should-never-appear" not in blob
+    assert st["key_present"] is True            # presence only
+    assert "transcripts_enabled" in st
+
+
+def test_transcripts_gate_is_second_optin(monkeypatch):
+    # Even with the base tutor gate on, transcript paths stay OFF without the second
+    # explicit opt-in — the learner-content HOLD enforced in code.
+    monkeypatch.setenv("OSAI_LLM", "1")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.delenv("OSAI_LLM_TRANSCRIPTS", raising=False)
+    assert llm_mod.transcripts_enabled() is False
+
+
+def test_redaction_scrubs_flags_secrets_and_pii():
+    raw = ("user alice@example.com leaked OSAI{abc123} and AKIA0123456789ABCDEF "
+           "plus sk-abcdefgh12345678ijkl and card 4111 1111 1111 1111")
+    red = llm_mod.redact_text(raw)
+    assert "OSAI{abc123}" not in red and "[REDACTED_FLAG]" in red
+    assert "alice@example.com" not in red and "[REDACTED_EMAIL]" in red
+    assert "AKIA0123456789ABCDEF" not in red and "[REDACTED_AWS_KEY]" in red
+    assert "sk-abcdefgh12345678ijkl" not in red and "[REDACTED_API_KEY]" in red
+    assert "4111 1111 1111 1111" not in red
+
+
+def test_redact_transcript_preserves_shape():
+    tr = [{"role": "user", "source": "chat_ui", "content": "the flag is OSAI{x}"}]
+    red = llm_mod.redact_transcript(tr)
+    assert red[0]["role"] == "user" and red[0]["source"] == "chat_ui"
+    assert "OSAI{x}" not in red[0]["content"]
+    assert tr[0]["content"] == "the flag is OSAI{x}"  # original untouched (copy)
+
+
 def test_abstention_unaffected_by_provider():
     # An off-corpus query must still abstain — the LLM is never consulted.
     fake = _FakeProvider(reply="(should never be used)")

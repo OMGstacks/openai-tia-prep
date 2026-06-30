@@ -22,12 +22,26 @@ Both model ids are overridable via ``OSAI_LLM_MODEL`` / ``OSAI_LLM_MODEL_BULK``.
 from __future__ import annotations
 
 import os
+import re
 
 # Quality tier (default) and bulk tier (cheap, high-volume) — overridable via env.
 MODEL_QUALITY = os.environ.get("OSAI_LLM_MODEL", "claude-opus-4-8")
 MODEL_BULK = os.environ.get("OSAI_LLM_MODEL_BULK", "claude-haiku-4-5")
 
 _TRUTHY = {"1", "true", "on", "yes"}
+
+# Patterns scrubbed before any learner content leaves the box (defense in depth — the
+# range plants only fake secrets, but the API call must not carry tokens/PII anyway).
+# See docs/security/api-key-and-data-handling.md.
+_REDACTIONS = [
+    (re.compile(r"OSAI\{[^}]*\}"), "[REDACTED_FLAG]"),
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED_EMAIL]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED_AWS_KEY]"),
+    (re.compile(r"\bsk-[A-Za-z0-9._-]{16,}\b"), "[REDACTED_API_KEY]"),
+    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+                re.S), "[REDACTED_PRIVATE_KEY]"),
+    (re.compile(r"\b(?:\d[ -]*?){13,16}\b"), "[REDACTED_PAN]"),
+]
 
 
 def sdk_available() -> bool:
@@ -45,16 +59,46 @@ def key_present() -> bool:
 
 def enabled() -> bool:
     """The generative layer is OFF unless explicitly opted in AND actually usable.
-    This keeps the default, no-key experience deterministic and offline."""
+    This keeps the default, no-key experience deterministic and offline. Governs the
+    low-risk tutor path (query + public reference corpus)."""
     opted_in = os.environ.get("OSAI_LLM", "").strip().lower() in _TRUTHY
     return opted_in and key_present() and sdk_available()
 
 
+def transcripts_enabled() -> bool:
+    """A SECOND, separate opt-in gate for paths that would send *learner attack
+    transcripts* to the API (report-judge, attacker-LLM). Requires the base gate AND
+    an explicit OSAI_LLM_TRANSCRIPTS=1. Held OFF until the data-handling controls in
+    docs/security/api-key-and-data-handling.md are in place; even then, content is
+    redacted first (see ``redact_transcript``)."""
+    opted_in = os.environ.get("OSAI_LLM_TRANSCRIPTS", "").strip().lower() in _TRUTHY
+    return enabled() and opted_in
+
+
+def redact_text(text: str) -> str:
+    """Scrub flags / secrets / PII from a string before it can leave the box."""
+    for pattern, repl in _REDACTIONS:
+        text = pattern.sub(repl, text or "")
+    return text
+
+
+def redact_transcript(transcript) -> list:
+    """Return a copy of a transcript with every event's content redacted. The learner-
+    content LLM paths MUST pass transcripts through this before any API call."""
+    out = []
+    for event in transcript or []:
+        ev = dict(event)
+        ev["content"] = redact_text(ev.get("content", ""))
+        out.append(ev)
+    return out
+
+
 def status() -> dict:
     """A small introspection blob for /health so the operator can see whether their
-    key is live without leaking it."""
+    key is live without leaking it. Never includes the value/prefix/suffix/length."""
     return {
         "enabled": enabled(),
+        "transcripts_enabled": transcripts_enabled(),
         "sdk_installed": sdk_available(),
         "key_present": key_present(),
         "model_quality": MODEL_QUALITY,

@@ -65,6 +65,20 @@ def cmd_tutor(args) -> int:
     return 0
 
 
+def cmd_llm(args) -> int:
+    """Safe presence check — prints only yes/no, NEVER the key value, prefix, suffix,
+    length, or hash (docs/security/api-key-and-data-handling.md)."""
+    from . import llm as llm_mod
+
+    yn = lambda b: "yes" if b else "no"  # noqa: E731
+    print(f"ANTHROPIC_API_KEY present: {yn(llm_mod.key_present())}")
+    print(f"anthropic SDK installed:   {yn(llm_mod.sdk_available())}")
+    print(f"OSAI_LLM (tutor) enabled:  {yn(llm_mod.enabled())}")
+    print(f"OSAI_LLM_TRANSCRIPTS gate: {yn(llm_mod.transcripts_enabled())}")
+    print(f"model (quality / bulk):    {llm_mod.MODEL_QUALITY} / {llm_mod.MODEL_BULK}")
+    return 0
+
+
 def cmd_goldset(args) -> int:
     from .goldset import GoldSetRunner, load_goldset
 
@@ -175,6 +189,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--db", required=True)
     sp.add_argument("--learner", required=True)
     sp.set_defaults(fn=cmd_progress)
+
+    sp = sub.add_parser("llm", help="safe LLM seam status (presence only — never the key value)")
+    sp.set_defaults(fn=cmd_llm)
 
     sp = sub.add_parser("goldset", help="run the tutor gold-set ship gate (04-evaluation-harness.md)")
     sp.add_argument("--goldset", help="path to a gold-set JSON (defaults to gold/goldset.json)")

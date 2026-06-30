@@ -20,6 +20,16 @@ htmlcov/
 *.db-wal
 *.db-shm
 
+# Secrets — NEVER commit. API keys live only in the runtime environment / secret
+# store (see osai-prep-studio/docs/security/api-key-and-data-handling.md).
+.env
+.env.*
+secrets/
+config/credentials.json
+**/credentials.json
+*.key
+*.pem
+
 # Editor / OS
 .idea/
 .vscode/

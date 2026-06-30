@@ -25,7 +25,7 @@ This is **not** the full app. It is the spine: the canonical taxonomy registry, 
 | `osai_spine/labserver.py` | HTTP wrapper that runs a mock target as the **lab-target container** entrypoint | [02-lab-range.md](../02-lab-range.md) |
 | `osai_spine/static/index.html` | A minimal **single-page web UI** (served at `GET /`) — attack labs, ask the tutor, view progress/readiness/heatmap, drill flashcards | [00a-vision.md](../00a-vision.md) |
 | `deploy/` | `Dockerfile.grader`, `Dockerfile.labtarget`, hardened `docker-compose.yml` | [13-platform-threat-model.md](../13-platform-threat-model.md) |
-| `osai_spine/cli.py` | `catalog` · `validate-manifests` · `derive-flag` · `grade` · `tutor` · `goldset` · `progress` · `report` · `serve` | [07-architecture-and-stack.md](../07-architecture-and-stack.md) |
+| `osai_spine/cli.py` | `catalog` · `validate-manifests` · `derive-flag` · `grade` · `tutor` · `goldset` · `llm` · `progress` · `report` · `serve` | [07-architecture-and-stack.md](../07-architecture-and-stack.md) |
 | `labs/L01..L16.json` | **12 lab manifests**: direct injection (L01), RAG indirect injection (L02), encoded-payload smuggling (L03), system-prompt extraction (L04), markdown exfil (L05), output-handling→XSS/SSRF (L06), sensitive disclosure (L07), RAG write-path poisoning (L09), MCP tool misuse (L11), MCP shadowing/rug-pull (L12), agent memory poisoning (L15), excessive-agency destructive action (L16) | [02-lab-range.md](../02-lab-range.md) |
 | `tests/` | 73 pytest tests: taxonomy, flags, manifests, grading, the **attack→target→grade loops** (L01/L02/L11), the **tutor** + **LLM seam** + **gold-set ship gate** + **scope guard**, the **progress engine** + **badges/leaderboard** + **SM-2 flashcards**, the **Report-Reviewer**, the **Exam Simulator**, the **web UI**, the **stdlib HTTP service**, and the **FastAPI app** | — |
 
@@ -85,11 +85,15 @@ The platform runs **fully offline** by default — the tutor answers extractivel
 
 ```bash
 pip install -r osai-prep-studio/spine/requirements-llm.txt   # adds the anthropic SDK
-export ANTHROPIC_API_KEY=...      # read from the env only; never commit it
+export ANTHROPIC_API_KEY=...      # runtime env only; never chat/git/images
 export OSAI_LLM=1                 # opt in (default model: claude-opus-4-8)
+
+python -m osai_spine.cli llm      # safe check — prints presence (yes/no), never the value
 ```
 
-`GET /health` reports the `llm` state. The generative path keeps every grounding guarantee — retrieval-first, abstention, citations, and the taxonomy anti-hallucination check — and **falls back to the extractive answer** on any error or if the model emits a non-existent framework id. Only the tutor path is wired today; the report-judge and attacker-LLM seams exist but are intentionally left unwired pending a data-handling decision (they would send learner content to the API).
+`GET /health` reports the `llm` state. The generative path keeps every grounding guarantee — retrieval-first, abstention, citations, and the taxonomy anti-hallucination check — and **falls back to the extractive answer** on any error or if the model emits a non-existent framework id.
+
+**Two-tier gate (data-handling).** `OSAI_LLM=1` enables only the low-risk **tutor** path (query + the *public* reference corpus). The **report-judge / attacker-LLM** paths — which would send *learner attack transcripts* — are fenced behind a **second** explicit opt-in (`OSAI_LLM_TRANSCRIPTS=1`) and are **held OFF** until the operational controls in [`../docs/security/api-key-and-data-handling.md`](../docs/security/api-key-and-data-handling.md) are met; even then, `llm.redact_transcript()` scrubs flags/secrets/PII before any egress. Secret files (`.env`, `secrets/`, `*.key`, `*.pem`, `credentials.json`) are git-ignored and denied to the agent via `.claude/settings.json`.
 
 ## Next (per the roadmap)
 
