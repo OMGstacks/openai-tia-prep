@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from . import engine
+from .progress import ProgressStore
 from .service import GraderState, _public_manifest
 from .tutor import Tutor
 from .validator import ChallengeValidator
@@ -54,6 +55,7 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
     )
     app = FastAPI(title="OSAI Prep Studio — Grader", version="0.1.0")
     tutor = Tutor(registry=state.registry)
+    progress = ProgressStore(os.environ.get("OSAI_DB", ":memory:"))
 
     @app.get("/health")
     def health():
@@ -96,7 +98,17 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
         result = ChallengeValidator(manifest).grade(
             transcript, req.flag, state.seed, req.learner_id, req.attempt
         )
-        return result.public_feedback()
+        feedback = result.public_feedback()
+        feedback["progress"] = progress.record_attempt(req.learner_id, manifest, result)
+        return feedback
+
+    @app.get("/progress/{learner_id}")
+    def get_progress(learner_id: str):
+        return progress.summary(learner_id, state.registry)
+
+    @app.get("/readiness/{learner_id}")
+    def get_readiness(learner_id: str):
+        return progress.readiness(learner_id, state.registry)
 
     @app.post("/tutor/ask")
     def tutor_ask(req: AskRequest):

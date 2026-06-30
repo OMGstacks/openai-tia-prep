@@ -85,8 +85,20 @@ def cmd_grade(args) -> int:
     result = ChallengeValidator(manifest).grade(
         transcript, args.flag, args.seed, args.learner, args.attempt
     )
+    if getattr(args, "db", None):
+        from .progress import ProgressStore
+
+        ProgressStore(args.db).record_attempt(args.learner, manifest, result)
     print(json.dumps(result.to_dict(), indent=2))
     return 0 if result.passed else 2
+
+
+def cmd_progress(args) -> int:
+    from .progress import ProgressStore
+
+    store = ProgressStore(args.db)
+    print(json.dumps(store.summary(args.learner, TaxonomyRegistry()), indent=2))
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -127,7 +139,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--attempt", type=int, default=0)
     sp.add_argument("--labs", type=Path)
     sp.add_argument("--manifest", help="path to a manifest (overrides --lab/--labs)")
+    sp.add_argument("--db", help="record the attempt to this SQLite progress DB")
     sp.set_defaults(fn=cmd_grade)
+
+    sp = sub.add_parser("progress", help="show a learner's progress from a SQLite DB")
+    sp.add_argument("--db", required=True)
+    sp.add_argument("--learner", required=True)
+    sp.set_defaults(fn=cmd_progress)
 
     return p
 
