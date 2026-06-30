@@ -65,6 +65,16 @@ def cmd_tutor(args) -> int:
     return 0
 
 
+def cmd_report(args) -> int:
+    from .report import ReportReviewer
+
+    finding = json.loads(Path(args.finding).read_text(encoding="utf-8"))
+    transcript = json.loads(Path(args.transcript).read_text(encoding="utf-8")) if args.transcript else None
+    card = ReportReviewer(TaxonomyRegistry()).review(finding, transcript)
+    print(json.dumps(card.to_dict(), indent=2))
+    return 0 if card.passed else 2
+
+
 def cmd_serve(args) -> int:
     from .service import build_server
 
@@ -146,6 +156,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--db", required=True)
     sp.add_argument("--learner", required=True)
     sp.set_defaults(fn=cmd_progress)
+
+    sp = sub.add_parser("report", help="grade a learner finding vs the business-impact rubric")
+    sp.add_argument("--finding", required=True, help="path to a finding JSON")
+    sp.add_argument("--transcript", help="path to the attack transcript JSON (for classification check)")
+    sp.set_defaults(fn=cmd_report)
 
     return p
 

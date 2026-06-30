@@ -47,5 +47,6 @@ _engine = _load_engine()
 detect = _engine.detect                      # (event: dict) -> list[Finding]
 detector_catalog = _engine.detector_catalog  # () -> list[dict]
 event_severity = _engine.event_severity      # (list[Finding]) -> str
+severity_rank = _engine.severity_rank        # (str) -> int  (higher == worse)
 Finding = _engine.Finding
 ENGINE_PATH = str(_DETECTORS_PATH)

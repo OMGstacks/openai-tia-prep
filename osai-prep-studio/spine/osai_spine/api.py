@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from . import engine
 from .progress import ProgressStore
+from .report import ReportReviewer
 from .service import GraderState, _public_manifest
 from .tutor import Tutor
 from .validator import ChallengeValidator
@@ -44,6 +45,11 @@ class AskRequest(BaseModel):
     mode: str = "tutor"
 
 
+class ReviewRequest(BaseModel):
+    finding: dict
+    transcript: List[Event] = Field(default_factory=list)
+
+
 def _dump(event: Event) -> dict:
     return event.model_dump() if hasattr(event, "model_dump") else event.dict()
 
@@ -56,6 +62,7 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
     app = FastAPI(title="OSAI Prep Studio — Grader", version="0.1.0")
     tutor = Tutor(registry=state.registry)
     progress = ProgressStore(os.environ.get("OSAI_DB", ":memory:"))
+    reviewer = ReportReviewer(state.registry)
 
     @app.get("/health")
     def health():
@@ -113,6 +120,11 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
     @app.post("/tutor/ask")
     def tutor_ask(req: AskRequest):
         return tutor.ask(req.query, req.mode)
+
+    @app.post("/reports/review")
+    def review_report(req: ReviewRequest):
+        transcript = [_dump(e) for e in req.transcript] or None
+        return reviewer.review(req.finding, transcript).to_dict()
 
     return app
 
