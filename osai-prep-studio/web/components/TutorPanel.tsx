@@ -7,14 +7,17 @@ import type { TutorAnswer } from "@/lib/types";
 export default function TutorPanel() {
   const [query, setQuery] = useState("");
   const [ans, setAns] = useState<TutorAnswer | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const ask = async () => {
     setBusy(true);
+    setErr(null);
     try {
       setAns(await api.tutorAsk(query));
-    } catch {
+    } catch (e) {
       setAns(null);
+      setErr(e instanceof Error ? e.message : "request failed — is the grader running?");
     } finally {
       setBusy(false);
     }
@@ -42,6 +45,7 @@ export default function TutorPanel() {
         </button>
         <span className="muted">no source → no confident answer</span>
       </div>
+      {err && <div className="out"><span className="pill bad">error</span> {err}</div>}
       {ans && (
         <div className="out">
           <span className={`pill ${ans.abstained || ans.refused ? "bad" : "ok"}`}>{tag}</span>{" "}

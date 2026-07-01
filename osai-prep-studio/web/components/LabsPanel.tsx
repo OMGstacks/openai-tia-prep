@@ -12,6 +12,7 @@ export default function LabsPanel() {
   const [attack, setAttack] = useState("");
   const [flag, setFlag] = useState("");
   const [result, setResult] = useState<SubmitResult | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -27,12 +28,14 @@ export default function LabsPanel() {
   const submit = async () => {
     if (!active) return;
     setBusy(true);
+    setErr(null);
     try {
       const transcript = [{ role: "user", source: "chat_ui", content: attack }];
       const r = await api.submit(active, learner || "demo", transcript, flag);
       setResult(r);
     } catch (e) {
       setResult(null);
+      setErr(e instanceof Error ? e.message : "submit failed — is the grader running?");
     } finally {
       setBusy(false);
     }
@@ -75,6 +78,11 @@ export default function LabsPanel() {
           {busy ? "grading…" : "Submit"}
         </button>
       </div>
+      <div className="muted" style={{ fontSize: 11 }}>
+        The flag is planted server-side per learner — exfiltrate it from the target and paste
+        it here; the grader verifies it (it is never sent to the browser).
+      </div>
+      {err && <div className="out"><span className="pill bad">error</span> {err}</div>}
       {result && (
         <div className="out">
           <span className={`pill ${result.passed ? "ok" : "bad"}`}>

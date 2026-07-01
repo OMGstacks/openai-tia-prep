@@ -1,24 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import { useLearner } from "@/lib/learner";
 import type { Progress } from "@/lib/types";
 
 export default function ProgressPanel() {
   const { learner } = useLearner();
-  const [p, setP] = useState<Progress | null>(null);
-
-  const load = useCallback(() => {
-    api
-      .progress(learner || "demo")
-      .then(setP)
-      .catch(() => setP(null));
-  }, [learner]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data: p, loading, error, reload } = useApi<Progress>(
+    () => api.progress(learner || "demo"),
+    [learner],
+  );
 
   const heatmap = p?.weakness_heatmap ? Object.entries(p.weakness_heatmap) : [];
 
@@ -26,12 +18,16 @@ export default function ProgressPanel() {
     <section className="panel">
       <h2>Progress &amp; readiness</h2>
       <div className="row">
-        <button className="ghost" onClick={load}>
+        <button className="ghost" onClick={reload}>
           Refresh
         </button>
-        <span className="muted">
-          {p ? `xp ${p.xp} · attempts ${p.attempts.passed}/${p.attempts.total}` : "—"}
-        </span>
+        {loading && <span className="muted">loading…</span>}
+        {error && <span className="pill bad">grader error</span>}
+        {p && !loading && (
+          <span className="muted">
+            xp {p.xp} · attempts {p.attempts.passed}/{p.attempts.total}
+          </span>
+        )}
       </div>
       <div className="row">
         <strong>Readiness</strong>&nbsp;
@@ -55,7 +51,7 @@ export default function ProgressPanel() {
             ★ {b.title}
           </span>
         ))}
-        {p && !p.badges.length && <span className="muted">no badges yet</span>}
+        {p && !p.badges.length && <span className="muted">no badges yet — pass a lab to earn First Blood</span>}
       </div>
     </section>
   );

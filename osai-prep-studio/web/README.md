@@ -55,6 +55,10 @@ localStorage). Routes: `/` (home), `/labs`, `/tutor`, `/progress`, `/exam`, `/ca
 - **Answer-key safety is server-side.** The client only receives the grader's public
   (redacted) responses — no expected detector, OWASP id, or capstone answer key is ever
   sent to the browser.
+- **Resilient UX.** If the grader is unreachable a connection banner appears with the fix
+  (`uvicorn osai_spine.api:app --port 8077`) and a retry; read panels (`useApi` hook) show
+  loading / error / empty states; action panels surface submit/ask errors inline; the
+  layout is responsive (`viewport` meta + an auto-fit grid).
 - The **generative tutor** lights up automatically when the backend has the LLM layer
   enabled (the header shows `AI tutor ✓`); otherwise the offline extractive tutor is
   used — the UI is identical either way.

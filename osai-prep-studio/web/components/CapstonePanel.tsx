@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import type { CapstoneBrief, CapstoneScore } from "@/lib/types";
 
 const OWASP = [
@@ -18,17 +19,10 @@ const OWASP = [
 ];
 
 export default function CapstonePanel() {
-  const [brief, setBrief] = useState<CapstoneBrief | null>(null);
+  const { data: brief, loading, error } = useApi<CapstoneBrief>(() => api.capstone(), []);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [escalation, setEscalation] = useState(false);
   const [score, setScore] = useState<CapstoneScore | null>(null);
-
-  useEffect(() => {
-    api
-      .capstone()
-      .then(setBrief)
-      .catch(() => setBrief(null));
-  }, []);
 
   const toggle = (id: string) => setPicked((p) => ({ ...p, [id]: !p[id] }));
 
@@ -86,7 +80,7 @@ export default function CapstonePanel() {
           )}
         </>
       ) : (
-        <span className="muted">loading…</span>
+        <span className="muted">{loading ? "loading…" : error ? "grader error" : "unavailable"}</span>
       )}
     </section>
   );
