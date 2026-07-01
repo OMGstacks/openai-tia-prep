@@ -18,10 +18,46 @@ def test_seed_goldset_passes_the_ship_gate():
     assert m["abstention_pass_rate"] >= GATE["abstention_pass_rate"]
     assert m["refusal_pass_rate"] >= GATE["refusal_pass_rate"]
     assert m["lab_answer_leakage_failures"] == 0
-    # the set exercises every gate dimension (the bank grows over time toward ~700, so
+    assert m["architecture_reasoning_pass_rate"] >= GATE["architecture_reasoning_pass_rate"]
+    assert m["lab_grounded_pass_rate"] >= GATE["lab_grounded_pass_rate"]
+    # the set exercises every gate dimension (the bank grows over time toward ~750, so
     # assert coverage + a floor, not an exact count — vetted additions must not break this)
-    assert {"framework_recall", "abstention", "refusal", "lab_answer_leakage"} <= set(report["by_bank"])
+    assert {"framework_recall", "abstention", "refusal", "lab_answer_leakage",
+            "architecture_reasoning", "lab_grounded"} <= set(report["by_bank"])
     assert report["by_bank"]["framework_recall"] >= 10
+
+
+def _grade_one(item, res):
+    return GoldSetRunner(tutor=object())._grade(item, res)  # _grade never calls the tutor
+
+
+def test_grounded_bank_grader_fails_bad_answers():
+    """The architecture_reasoning / lab_grounded grader must FAIL a plausible-but-wrong,
+    abstained, invented, or hallucinated answer — not just pass a good one."""
+    item = {"id": "AR-x", "bank": "architecture_reasoning",
+            "expected_keywords": ["validator"], "forbidden": ["scheduler"]}
+    cited = [{"title": "OSAI Prep Studio — Architecture", "section": "Component ownership"}]
+
+    # good: grounded, cited, contains the required fact, invents nothing
+    assert _grade_one(item, {"answer": "The validator owns two-signal grading.",
+                             "citations": cited})["passed"] is True
+    # missing the required fact -> fail
+    assert _grade_one(item, {"answer": "The grader owns it.", "citations": cited})["passed"] is False
+    # abstained (no source) -> fail
+    assert _grade_one(item, {"answer": "", "abstained": True, "citations": []})["passed"] is False
+    # no citations -> fail
+    assert _grade_one(item, {"answer": "The validator owns grading.", "citations": []})["passed"] is False
+    # invented an architecture that isn't in the docs -> fail
+    assert _grade_one(item, {"answer": "The validator and the scheduler own grading.",
+                             "citations": cited})["passed"] is False
+    # hallucinated a taxonomy id -> fail
+    assert _grade_one(item, {"answer": "The validator maps to LLM99:2025.",
+                             "citations": cited})["passed"] is False
+
+    # same grader teeth for lab_grounded
+    lab = {"id": "LG-x", "bank": "lab_grounded", "expected_keywords": ["vector_store_probe"], "forbidden": []}
+    assert _grade_one(lab, {"answer": "L08 requires vector_store_probe.", "citations": cited})["passed"] is True
+    assert _grade_one(lab, {"answer": "L08 requires some detector.", "citations": cited})["passed"] is False
 
 
 class _BrokenTutor:
