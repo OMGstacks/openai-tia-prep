@@ -91,6 +91,23 @@ export interface CapstoneBrief {
   task: string;
 }
 
+export interface Flashcard {
+  id: number;
+  skill_tag: string;
+  prompt: string;
+  answer: string;
+  interval_days: number;
+  reps: number;
+  due_ts: number;
+}
+
+export interface ReviewResult {
+  card_id: number;
+  interval_days: number;
+  reps: number;
+  ef: number;
+}
+
 export interface CapstoneScore {
   score: number;
   of: number;

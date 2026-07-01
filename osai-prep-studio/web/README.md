@@ -43,6 +43,7 @@ npm run dev                       # http://localhost:3000
 | `components/TutorPanel.tsx` | Ask the tutor; renders grounded / abstained / refused + citations |
 | `components/ProgressPanel.tsx` | XP, readiness, weakness heatmap, badges |
 | `components/LeaderboardPanel.tsx` | Cross-learner ranking |
+| `components/FlashcardsPanel.tsx` | Spaced-repetition drill — seed from weakness, review (easy/hard/again) |
 | `components/CapstonePanel.tsx` | L20 triage: read the incident log, submit findings, see the score |
 | `lib/api.ts`, `lib/types.ts` | Typed client + response shapes (mirrors the server's redacted contract) |
 

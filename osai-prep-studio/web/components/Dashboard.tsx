@@ -7,6 +7,7 @@ import LabsPanel from "./LabsPanel";
 import TutorPanel from "./TutorPanel";
 import ProgressPanel from "./ProgressPanel";
 import LeaderboardPanel from "./LeaderboardPanel";
+import FlashcardsPanel from "./FlashcardsPanel";
 import CapstonePanel from "./CapstonePanel";
 
 export default function Dashboard() {
@@ -52,6 +53,7 @@ export default function Dashboard() {
         <LabsPanel learner={learner} onGraded={bumpRefresh} />
         <TutorPanel />
         <ProgressPanel learner={learner} refreshKey={refreshKey} />
+        <FlashcardsPanel learner={learner} refreshKey={refreshKey} />
         <LeaderboardPanel refreshKey={refreshKey} />
         <CapstonePanel />
       </main>

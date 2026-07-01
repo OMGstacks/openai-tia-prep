@@ -3,10 +3,12 @@
 import type {
   CapstoneBrief,
   CapstoneScore,
+  Flashcard,
   Health,
   LabSummary,
   LeaderboardRow,
   Progress,
+  ReviewResult,
   SubmitResult,
   TutorAnswer,
 } from "./types";
@@ -39,6 +41,9 @@ export const api = {
   tutorAsk: (query: string) => post<TutorAnswer>("/tutor/ask", { query }),
   progress: (learner: string) => j<Progress>(`/progress/${learner}`),
   seedCards: (learner: string) => post<{ created: number[] }>(`/flashcards/${learner}/seed`, {}),
+  dueCards: (learner: string) => j<Flashcard[]>(`/flashcards/${learner}/due`),
+  reviewCard: (card_id: number, grade: number) =>
+    post<ReviewResult>("/flashcards/review", { card_id, grade }),
   leaderboard: () => j<LeaderboardRow[]>("/leaderboard"),
   capstone: () => j<CapstoneBrief>("/capstone"),
   capstoneScore: (findings: { owasp_id: string }[], escalation_chain: boolean) =>
