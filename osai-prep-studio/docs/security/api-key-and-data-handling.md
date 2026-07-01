@@ -228,13 +228,17 @@ NIST 800-63B):
 **Secrets:** `OSAI_AUTH_SECRET` follows the same env-only rule as the API key (§2); set
 a strong random value in production (it defaults to the grader seed for dev only).
 
+- **Secure-cookie session mode** (`OSAI_COOKIE_AUTH=1`, requires `OSAI_AUTH=1`) — instead
+  of Bearer-in-`localStorage` (XSS-exposed), login/register set an **HttpOnly + Secure +
+  SameSite=Lax** session cookie plus a readable CSRF cookie; state-changing requests must
+  echo it in an `X-CSRF-Token` header (**double-submit CSRF**), enforced by a middleware.
+  Logout clears the cookies and revokes server-side. `OSAI_COOKIE_SECURE=0` drops the
+  Secure flag for local HTTP testing only. The front-end keeps **no token in JS** in this
+  mode. Bearer mode stays the default for API clients / dev.
+
 ### Still open before a public beta (tracked)
 
-- [ ] **Secure-cookie session mode** — Bearer-in-`localStorage` is fine for local/dev but
-  exposes the token to XSS; add an `HttpOnly`/`Secure`/`SameSite` cookie mode (+ CSRF)
-  for public deployment.
 - [ ] **Per-IP login limits + weak-password blocklist** — the throttle is per-username.
-- [ ] **Instructor/admin role** — cohort-wide audit view, progress reset, export.
 - [ ] **CSP / security headers** on the front-end deployment; **SBOM + dependency scan**
   in CI; container non-root/read-only (grader image already runs as uid 10001).
 

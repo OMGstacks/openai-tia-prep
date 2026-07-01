@@ -46,8 +46,30 @@ LOGIN_MAX_FAILURES = 5
 LOGIN_WINDOW_S = 300.0
 
 
+SESSION_COOKIE = "osai_session"
+CSRF_COOKIE = "osai_csrf"
+
+
 def auth_enabled() -> bool:
     return os.environ.get("OSAI_AUTH", "").strip().lower() in _TRUTHY
+
+
+def cookie_auth_enabled() -> bool:
+    """Opt-in production cookie session mode (HttpOnly/Secure/SameSite + CSRF) instead
+    of Bearer-in-localStorage. Requires auth. Bearer mode stays the default for API
+    clients / local dev."""
+    return auth_enabled() and os.environ.get("OSAI_COOKIE_AUTH", "").strip().lower() in _TRUTHY
+
+
+def cookie_secure() -> bool:
+    """Cookies carry the Secure flag by default (HTTPS-only). Set OSAI_COOKIE_SECURE=0
+    only for local HTTP testing."""
+    return os.environ.get("OSAI_COOKIE_SECURE", "1").strip().lower() in _TRUTHY
+
+
+def new_csrf() -> str:
+    """A fresh random CSRF token for the double-submit-cookie pattern."""
+    return _b64e(os.urandom(18))
 
 
 class AuthError(Exception):

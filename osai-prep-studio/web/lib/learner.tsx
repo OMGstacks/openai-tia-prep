@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "./api";
+import { api, readCookie } from "./api";
 
 interface LearnerCtx {
   learner: string;
@@ -24,6 +24,7 @@ const Ctx = createContext<LearnerCtx>({
 export function LearnerProvider({ children }: { children: React.ReactNode }) {
   const [learner, setState] = useState("demo");
   const [token, setToken] = useState<string | null>(null);
+  const [cookieSession, setCookieSession] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -31,6 +32,7 @@ export function LearnerProvider({ children }: { children: React.ReactNode }) {
     if (l) setState(l);
     const t = window.localStorage.getItem("osai_token");
     if (t) setToken(t);
+    setCookieSession(readCookie("osai_csrf") !== "");
   }, []);
 
   const setLearner = (v: string) => {
@@ -40,22 +42,32 @@ export function LearnerProvider({ children }: { children: React.ReactNode }) {
 
   const login = (l: string, t: string) => {
     setState(l);
-    setToken(t);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("osai_learner", l);
-      window.localStorage.setItem("osai_token", t);
+    if (typeof window !== "undefined") window.localStorage.setItem("osai_learner", l);
+    // cookie mode: the server set an HttpOnly session + a readable osai_csrf cookie —
+    // keep no bearer token in JS (XSS-safe); the cookie carries the session.
+    const cookieMode = readCookie("osai_csrf") !== "";
+    setCookieSession(cookieMode);
+    if (cookieMode) {
+      setToken(null);
+      if (typeof window !== "undefined") window.localStorage.removeItem("osai_token");
+    } else {
+      setToken(t);
+      if (typeof window !== "undefined") window.localStorage.setItem("osai_token", t);
     }
   };
 
   const logout = () => {
-    // best-effort server-side revocation (invalidates the token everywhere), then clear local
+    // best-effort server-side revocation (invalidates the session everywhere), then clear local
     api.logout().catch(() => {});
     setToken(null);
+    setCookieSession(false);
     if (typeof window !== "undefined") window.localStorage.removeItem("osai_token");
   };
 
   return (
-    <Ctx.Provider value={{ learner, token, authed: !!token, setLearner, login, logout }}>
+    <Ctx.Provider
+      value={{ learner, token, authed: !!token || cookieSession, setLearner, login, logout }}
+    >
       {children}
     </Ctx.Provider>
   );

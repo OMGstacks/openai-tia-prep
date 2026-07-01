@@ -14,8 +14,10 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse
+import hmac
+
+from fastapi import Cookie, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from . import audit as audit_mod
@@ -89,6 +91,23 @@ def _dump(event: Event) -> dict:
     return event.model_dump() if hasattr(event, "model_dump") else event.dict()
 
 
+def _set_session_cookies(response: Response, token: str) -> None:
+    """In cookie mode, set the HttpOnly session cookie + a readable CSRF cookie
+    (double-submit). No-op in Bearer mode."""
+    if not auth_mod.cookie_auth_enabled():
+        return
+    secure = auth_mod.cookie_secure()
+    response.set_cookie(auth_mod.SESSION_COOKIE, token, httponly=True, secure=secure,
+                        samesite="lax", path="/", max_age=auth_mod.TOKEN_TTL)
+    response.set_cookie(auth_mod.CSRF_COOKIE, auth_mod.new_csrf(), httponly=False,
+                        secure=secure, samesite="lax", path="/", max_age=auth_mod.TOKEN_TTL)
+
+
+def _clear_session_cookies(response: Response) -> None:
+    response.delete_cookie(auth_mod.SESSION_COOKIE, path="/")
+    response.delete_cookie(auth_mod.CSRF_COOKIE, path="/")
+
+
 def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
     auth_mod.enforce_deploy_policy()  # fail closed on an insecure public deployment
     state = GraderState(
@@ -108,19 +127,38 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
     )
     audit_log = audit_mod.AuditLog(os.environ.get("OSAI_AUDIT_DB", ":memory:"))
 
-    def resolve_learner(body_learner: str, authorization):
+    def resolve_learner(body_learner: str, authorization, cookie_token=None):
         """When auth is enabled, the effective learner is the verified token subject —
-        a user can only act as themselves. When disabled (default), the client-supplied
-        id is used, so offline/demo/CI flows are unchanged."""
+        a user can only act as themselves. The token comes from the Bearer header, or
+        (in cookie mode) the HttpOnly session cookie. When auth is disabled (default),
+        the client-supplied id is used, so offline/demo/CI flows are unchanged."""
         if not auth_mod.auth_enabled():
             return body_learner
         token = ""
         if authorization and authorization.lower().startswith("bearer "):
             token = authorization[7:].strip()
+        elif auth_mod.cookie_auth_enabled() and cookie_token:
+            token = cookie_token
         sub = auth.verify_token(token)
         if not sub:
             raise HTTPException(status_code=401, detail="authentication required")
         return sub
+
+    @app.middleware("http")
+    async def _csrf_guard(request: Request, call_next):
+        """Double-submit CSRF check: in cookie mode, a state-changing request that
+        relies on the session cookie (browser) must echo the CSRF cookie in an
+        X-CSRF-Token header. Bearer/API requests and login/register are exempt."""
+        if auth_mod.cookie_auth_enabled() and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            has_bearer = request.headers.get("authorization", "").lower().startswith("bearer ")
+            has_cookie = bool(request.cookies.get(auth_mod.SESSION_COOKIE))
+            exempt = request.url.path in ("/auth/login", "/auth/register")
+            if has_cookie and not has_bearer and not exempt:
+                header = request.headers.get("x-csrf-token", "")
+                cookie = request.cookies.get(auth_mod.CSRF_COOKIE, "")
+                if not header or not cookie or not hmac.compare_digest(header, cookie):
+                    return JSONResponse({"detail": "CSRF token missing or invalid"}, status_code=403)
+        return await call_next(request)
 
     @app.get("/", response_class=HTMLResponse)
     def index():
@@ -135,19 +173,22 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
             "tutor_corpus_chunks": len(tutor.library.chunks),
             "llm": llm_mod.status(),
             "auth_enabled": auth_mod.auth_enabled(),
+            "cookie_auth": auth_mod.cookie_auth_enabled(),
         }
 
     @app.post("/auth/register")
-    def auth_register(req: AuthRequest):
+    def auth_register(req: AuthRequest, response: Response):
         try:
             user = auth.register(req.username, req.password)
         except auth_mod.AuthError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         audit_log.record(audit_mod.AUTH_REGISTER, user)
-        return {"learner_id": user, "token": auth.issue_token(user)}
+        token = auth.issue_token(user)
+        _set_session_cookies(response, token)
+        return {"learner_id": user, "token": token}
 
     @app.post("/auth/login")
-    def auth_login(req: AuthRequest):
+    def auth_login(req: AuthRequest, response: Response):
         try:
             ok = auth.authenticate(req.username, req.password)
         except auth_mod.LoginThrottled:
@@ -157,28 +198,34 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
             audit_log.record(audit_mod.AUTH_LOGIN_FAILURE, req.username)
             raise HTTPException(status_code=401, detail="invalid credentials")
         audit_log.record(audit_mod.AUTH_LOGIN, req.username)
-        return {"learner_id": req.username, "token": auth.issue_token(req.username)}
+        token = auth.issue_token(req.username)
+        _set_session_cookies(response, token)
+        return {"learner_id": req.username, "token": token}
 
     @app.post("/auth/logout")
-    def auth_logout(authorization: str | None = Header(default=None)):
-        learner = resolve_learner("", authorization) if auth_mod.auth_enabled() else ""
+    def auth_logout(response: Response, authorization: str | None = Header(default=None),
+                    osai_session: str | None = Cookie(default=None)):
+        learner = resolve_learner("", authorization, osai_session) if auth_mod.auth_enabled() else ""
         if learner:
             auth.revoke_sessions(learner)  # invalidates every outstanding token
             audit_log.record(audit_mod.AUTH_LOGOUT, learner)
+        _clear_session_cookies(response)
         return {"ok": True}
 
     @app.get("/auth/me")
-    def auth_me(authorization: str | None = Header(default=None)):
+    def auth_me(authorization: str | None = Header(default=None),
+                osai_session: str | None = Cookie(default=None)):
         if not auth_mod.auth_enabled():
             return {"auth_enabled": False, "learner_id": None}
-        return {"auth_enabled": True, "learner_id": resolve_learner("", authorization)}
+        return {"auth_enabled": True, "learner_id": resolve_learner("", authorization, osai_session)}
 
     @app.get("/auth/events")
-    def auth_events(authorization: str | None = Header(default=None)):
+    def auth_events(authorization: str | None = Header(default=None),
+                    osai_session: str | None = Cookie(default=None)):
         # a learner's own recent audit trail (instructor-wide view is a future admin role)
         if not auth_mod.auth_enabled():
             return {"events": []}
-        return {"events": audit_log.recent(50, actor=resolve_learner("", authorization))}
+        return {"events": audit_log.recent(50, actor=resolve_learner("", authorization, osai_session))}
 
     @app.get("/catalog")
     def catalog():
@@ -204,11 +251,12 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
         return _public_manifest(manifest)
 
     @app.post("/labs/{lab_id}/submit")
-    def submit(lab_id: str, req: SubmitRequest, authorization: str | None = Header(default=None)):
+    def submit(lab_id: str, req: SubmitRequest, authorization: str | None = Header(default=None),
+               osai_session: str | None = Cookie(default=None)):
         manifest = state.labs.get(lab_id)
         if not manifest:
             raise HTTPException(status_code=404, detail="no such lab")
-        learner = resolve_learner(req.learner_id, authorization)
+        learner = resolve_learner(req.learner_id, authorization, osai_session)
         transcript = [_dump(e) for e in req.transcript]
         result = ChallengeValidator(manifest).grade(
             transcript, req.flag, state.seed, learner, req.attempt
@@ -222,16 +270,19 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
         return feedback
 
     @app.get("/progress/{learner_id}")
-    def get_progress(learner_id: str, authorization: str | None = Header(default=None)):
-        return progress.summary(resolve_learner(learner_id, authorization), state.registry)
+    def get_progress(learner_id: str, authorization: str | None = Header(default=None),
+                     osai_session: str | None = Cookie(default=None)):
+        return progress.summary(resolve_learner(learner_id, authorization, osai_session), state.registry)
 
     @app.get("/readiness/{learner_id}")
-    def get_readiness(learner_id: str, authorization: str | None = Header(default=None)):
-        return progress.readiness(resolve_learner(learner_id, authorization), state.registry)
+    def get_readiness(learner_id: str, authorization: str | None = Header(default=None),
+                      osai_session: str | None = Cookie(default=None)):
+        return progress.readiness(resolve_learner(learner_id, authorization, osai_session), state.registry)
 
     @app.get("/badges/{learner_id}")
-    def get_badges(learner_id: str, authorization: str | None = Header(default=None)):
-        return {"earned": progress.badges(resolve_learner(learner_id, authorization)),
+    def get_badges(learner_id: str, authorization: str | None = Header(default=None),
+                   osai_session: str | None = Cookie(default=None)):
+        return {"earned": progress.badges(resolve_learner(learner_id, authorization, osai_session)),
                 "catalog": BADGE_DEFS}
 
     @app.get("/leaderboard")
@@ -239,13 +290,15 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
         return progress.leaderboard(state.registry, limit)
 
     @app.post("/flashcards/{learner_id}/seed")
-    def seed_cards(learner_id: str, authorization: str | None = Header(default=None)):
-        learner = resolve_learner(learner_id, authorization)
+    def seed_cards(learner_id: str, authorization: str | None = Header(default=None),
+                   osai_session: str | None = Cookie(default=None)):
+        learner = resolve_learner(learner_id, authorization, osai_session)
         return {"created": progress.seed_weakness_cards(learner, state.registry)}
 
     @app.get("/flashcards/{learner_id}/due")
-    def due_cards(learner_id: str, authorization: str | None = Header(default=None)):
-        return progress.due_cards(resolve_learner(learner_id, authorization))
+    def due_cards(learner_id: str, authorization: str | None = Header(default=None),
+                  osai_session: str | None = Cookie(default=None)):
+        return progress.due_cards(resolve_learner(learner_id, authorization, osai_session))
 
     @app.post("/flashcards/review")
     def review_card(req: ReviewCardRequest):
@@ -264,8 +317,9 @@ def create_app(seed: str | None = None, labs_dir=None) -> FastAPI:
         return reviewer.review(req.finding, transcript).to_dict()
 
     @app.post("/exam/start")
-    def exam_start(req: ExamStartRequest, authorization: str | None = Header(default=None)):
-        learner = resolve_learner(req.learner_id, authorization)
+    def exam_start(req: ExamStartRequest, authorization: str | None = Header(default=None),
+                   osai_session: str | None = Cookie(default=None)):
+        learner = resolve_learner(req.learner_id, authorization, osai_session)
         return exam.start_session(learner, req.lab_ids, req.duration_seconds)
 
     @app.post("/exam/{session_id}/submit")

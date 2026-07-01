@@ -11,6 +11,7 @@ export interface Health {
   labs: string[];
   tutor_corpus_chunks: number;
   auth_enabled?: boolean;
+  cookie_auth?: boolean;
   llm: {
     enabled: boolean;
     transcripts_enabled: boolean;

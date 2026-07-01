@@ -17,18 +17,31 @@ import type {
   TutorAnswer,
 } from "./types";
 
-// Attach the session token (when auth is enabled and the learner has logged in) so
-// the server derives the learner from the token, not the request body.
+export function readCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+// Bearer mode: attach the token from localStorage. Cookie mode: no token in JS — the
+// HttpOnly session cookie travels automatically (credentials: include) and the CSRF
+// cookie is echoed as a header (double-submit).
 function authHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const t = window.localStorage.getItem("osai_token");
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+function csrfHeader(): Record<string, string> {
+  const c = readCookie("osai_csrf");
+  return c ? { "X-CSRF-Token": c } : {};
+}
+
 async function j<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...opts,
-    headers: { ...(opts.headers || {}), ...authHeader() },
+    credentials: "include",
+    headers: { ...(opts.headers || {}), ...authHeader(), ...csrfHeader() },
   });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return (await res.json()) as T;
