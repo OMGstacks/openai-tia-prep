@@ -78,6 +78,25 @@ def _admin_users() -> set:
     return {u.strip() for u in os.environ.get("OSAI_ADMIN_USERS", "").split(",") if u.strip()}
 
 
+def read_secret(env=None) -> str:
+    """Resolve the token-signing secret, preferring a Docker-secret **file**
+    (``OSAI_AUTH_SECRET_FILE``, e.g. ``/run/secrets/osai_auth_secret``) over the
+    inline ``OSAI_AUTH_SECRET`` env var — the same file-first convention the LLM key
+    uses, so the secret never has to live in the host/container process environment.
+    Returns ``""`` if neither is set (callers fall back to ``DEFAULT_SECRET``)."""
+    env = env if env is not None else os.environ
+    path = (env.get("OSAI_AUTH_SECRET_FILE") or "").strip()
+    if path:
+        try:
+            with open(path, encoding="utf-8-sig") as fh:
+                val = fh.read().strip()
+            if val:
+                return val
+        except OSError:
+            pass
+    return env.get("OSAI_AUTH_SECRET", "") or ""
+
+
 class AuthError(Exception):
     """Registration/validation failure (bad input, duplicate user)."""
 
@@ -140,11 +159,11 @@ def enforce_deploy_policy(env=None) -> None:
     problems = []
     if env.get("OSAI_AUTH", "").strip().lower() not in _TRUTHY:
         problems.append("set OSAI_AUTH=1")
-    secret = env.get("OSAI_AUTH_SECRET", "")
+    secret = read_secret(env)
     if not secret or secret == DEFAULT_SECRET:
-        problems.append("set OSAI_AUTH_SECRET to a non-default value")
+        problems.append("set OSAI_AUTH_SECRET (or OSAI_AUTH_SECRET_FILE) to a non-default value")
     elif len(secret) < MIN_SECRET_LEN:
-        problems.append(f"OSAI_AUTH_SECRET must be >= {MIN_SECRET_LEN} chars")
+        problems.append(f"the auth secret must be >= {MIN_SECRET_LEN} chars")
     if problems:
         raise RuntimeError(
             "refusing to start a public deployment (OSAI_PUBLIC=1) without: "
@@ -180,9 +199,7 @@ class AuthStore:
     """SQLite-backed user store + stateless token issuer/verifier (hardened)."""
 
     def __init__(self, db_path: str = ":memory:", secret: str | None = None):
-        self.secret = (
-            secret or os.environ.get("OSAI_AUTH_SECRET") or DEFAULT_SECRET
-        ).encode()
+        self.secret = (secret or read_secret() or DEFAULT_SECRET).encode()
         self._lock = threading.Lock()
         self._throttle = _LoginThrottle()
         self.conn = sqlite3.connect(db_path, check_same_thread=False)

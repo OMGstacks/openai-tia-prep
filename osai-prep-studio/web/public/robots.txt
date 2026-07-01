@@ -1,0 +1,3 @@
+# OSAI Prep Studio is a private, authorized-lab-only training range — not for indexing.
+User-agent: *
+Disallow: /

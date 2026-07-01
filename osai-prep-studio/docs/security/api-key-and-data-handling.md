@@ -221,12 +221,18 @@ NIST 800-63B):
   learner sees their own trail at `GET /auth/events`.
 - **Fail-closed deploy guard** — `enforce_deploy_policy()` (run at `create_app`) refuses
   to start a **public** deployment (`OSAI_PUBLIC=1`) unless `OSAI_AUTH=1` **and** a
-  strong (`>= 32` char), non-default `OSAI_AUTH_SECRET` is set. Escape hatch for demos:
+  strong (`>= 32` char), non-default signing secret is set. Escape hatch for demos:
   `OSAI_ALLOW_INSECURE_PUBLIC_DEMO=1`. This prevents the "deployed publicly with auth
   accidentally off" failure.
 
-**Secrets:** `OSAI_AUTH_SECRET` follows the same env-only rule as the API key (§2); set
-a strong random value in production (it defaults to the grader seed for dev only).
+**Secrets:** the token-signing secret resolves **file-first** — `OSAI_AUTH_SECRET_FILE`
+(a Docker/secret-manager file such as `/run/secrets/osai_auth_secret`) is preferred over
+the inline `OSAI_AUTH_SECRET` env var (`auth.read_secret()`), the same convention the API
+key uses (§2), so the secret need never live in the container's process environment. Set a
+strong random value in production (it defaults to a dev placeholder otherwise). The
+deploy-ready **beta stack** (`deploy/docker-compose.beta.yml`) wires this: grader with
+`OSAI_PUBLIC=1` + auth + cookie/CSRF, secret from a file, grader unpublished behind the
+web proxy — see the [deploy runbook + pre-beta checklist](../../spine/deploy/README.md).
 
 - **Secure-cookie session mode** (`OSAI_COOKIE_AUTH=1`, requires `OSAI_AUTH=1`) — instead
   of Bearer-in-`localStorage` (XSS-exposed), login/register set an **HttpOnly + Secure +
@@ -240,7 +246,9 @@ a strong random value in production (it defaults to the grader seed for dev only
 
 - [ ] **Per-IP login limits + weak-password blocklist** — the throttle is per-username.
 - [ ] **CSP / security headers** on the front-end deployment; **SBOM + dependency scan**
-  in CI; container non-root/read-only (grader image already runs as uid 10001).
+  in CI. Container hardening is in place: the grader (uid 10001) and web (uid 10002) images
+  both run non-root, and the beta compose applies read-only rootfs, `no-new-privileges`,
+  all-caps-dropped, and resource limits to every service.
 
 ## Cross-references
 [../../07-architecture-and-stack.md](../../07-architecture-and-stack.md) ·

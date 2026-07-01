@@ -5,11 +5,13 @@ on:
     branches: [ main, master, "claude/**" ]
     paths:
       - "osai-prep-studio/spine/**"
+      - "osai-prep-studio/web/**"
       - "projects/llm-log-triage/src/detectors.py"
       - ".github/workflows/osai-spine.yml"
   pull_request:
     paths:
       - "osai-prep-studio/spine/**"
+      - "osai-prep-studio/web/**"
       - "projects/llm-log-triage/src/detectors.py"
 
 jobs:
@@ -58,17 +60,33 @@ jobs:
   docker:
     name: docker images build
     runs-on: ubuntu-latest
+    env:
+      DEPLOY: osai-prep-studio/spine/deploy
     steps:
       - uses: actions/checkout@v4
-      - name: Validate compose config
-        run: docker compose -f osai-prep-studio/spine/deploy/docker-compose.yml config
+      - name: Validate compose configs (dev, beta, overlays)
+        run: |
+          docker compose -f $DEPLOY/docker-compose.yml config -q
+          docker compose -f $DEPLOY/docker-compose.yml -f $DEPLOY/docker-compose.ollama.yml --profile pull config -q
+          OSAI_ADMIN_USERS=ci@example.com OSAI_SERVER_SEED=ci-seed \
+            docker compose -f $DEPLOY/docker-compose.beta.yml config -q
       - name: Build grader image
-        run: docker build -f osai-prep-studio/spine/deploy/Dockerfile.grader -t osai-grader:ci .
+        run: docker build -f $DEPLOY/Dockerfile.grader -t osai-grader:ci .
       - name: Build lab-target image
-        run: docker build -f osai-prep-studio/spine/deploy/Dockerfile.labtarget -t osai-labtarget:ci .
+        run: docker build -f $DEPLOY/Dockerfile.labtarget -t osai-labtarget:ci .
+      - name: Build web image (standalone Next.js)
+        run: docker build -f $DEPLOY/Dockerfile.web -t osai-web:ci .
       - name: Smoke-run the grader container
         run: |
           docker run -d --name grader -p 8077:8077 -e OSAI_SERVER_SEED=ci osai-grader:ci
           for i in $(seq 1 15); do curl -sf http://127.0.0.1:8077/health && break; sleep 2; done
           curl -sf http://127.0.0.1:8077/health | grep -q '"status":"ok"'
           docker rm -f grader
+      - name: Fail-closed guard fires on an unsecured public deploy
+        run: |
+          if docker run --rm -e OSAI_PUBLIC=1 osai-grader:ci \
+               python -c "from osai_spine import auth; auth.enforce_deploy_policy()"; then
+            echo "guard did NOT fail closed"; exit 1
+          else
+            echo "OK: guard fails closed on OSAI_PUBLIC=1 without auth"
+          fi

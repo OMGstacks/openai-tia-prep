@@ -83,9 +83,13 @@ cd osai-prep-studio/spine && PYTHONPATH=. uvicorn osai_spine.api:app --host 0.0.
 
 # containers: grader + an isolated L01 lab target (build context = repo root)
 cd osai-prep-studio/spine/deploy && docker compose up --build
+
+# controlled beta: grader (auth + cookie/CSRF + fail-closed guard) + Next.js web,
+# secret from a file, grader unpublished behind the web proxy — full runbook +
+# pre-beta checklist in deploy/README.md
 ```
 
-The compose stack hardens the lab target per [13-platform-threat-model.md](../13-platform-threat-model.md): read-only rootfs, `no-new-privileges`, all caps dropped, CPU/memory limits, and an **internal** network (no egress to the internet). The CI `docker` job builds both images and smoke-runs the grader on every change. (Image build needs a registry-reachable Docker daemon; the local sandbox's is offline, so it's verified in CI.)
+The compose stack hardens the lab target per [13-platform-threat-model.md](../13-platform-threat-model.md): read-only rootfs, `no-new-privileges`, all caps dropped, CPU/memory limits, and an **internal** network (no egress to the internet). The CI `docker` job builds both images and smoke-runs the grader on every change. (Image build needs a registry-reachable Docker daemon; the local sandbox's is offline, so it's verified in CI.) The deploy-ready artifacts — `Dockerfile.web` (standalone Next.js), `docker-compose.beta.yml` (auth-on beta), and `docker-compose.ollama.yml` (real local-model lab targets, weights pre-pulled into a volume, no runtime egress) — are documented in **[deploy/README.md](deploy/README.md)**.
 
 ### Optional: the generative LLM layer
 

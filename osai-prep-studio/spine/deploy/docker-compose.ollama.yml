@@ -1,0 +1,80 @@
+# OSAI Prep Studio — Ollama-backed lab target overlay (realism upgrade for L01).
+#
+# Swaps the deterministic stdlib mock (labtarget.MockChatTarget) for a real, locally
+# hosted, deliberately weakly-guardrailed model (labtarget.OllamaChatTarget), behind
+# the SAME .chat() contract — so the grader loop is unchanged. Model WEIGHTS never
+# enter git; they are pulled into a named volume and served from there.
+#
+# Isolation (13-platform-threat-model.md): the runtime `ollama` server and the lab
+# target sit on the base compose's INTERNAL `labnet` (deny-all egress, no published
+# ports). Only the one-shot pre-pull step is granted egress, and only long enough to
+# fetch the weights into the volume.
+#
+# Two phases — overlay this on the base compose:
+#   cd osai-prep-studio/spine/deploy
+#   # 1) pre-pull the weights (needs internet; writes to the ollama-models volume):
+#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml \
+#       --profile pull run --rm ollama-pull
+#   # 2) run the range with the real model target (no egress from labnet):
+#   OSAI_OLLAMA=1 docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
+#
+# Pick the model with OSAI_OLLAMA_MODEL (default llama3.2:3b — a small CPU-friendly
+# model; ~2 GB). For GPU, add a deploy.resources.reservations.devices block.
+
+services:
+  # One-shot weight fetch. Runs ONLY under the `pull` profile, and is the only
+  # container granted egress. Starts a throwaway server, pulls, then exits.
+  ollama-pull:
+    image: ollama/ollama:latest
+    profiles: ["pull"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'ollama serve & srv=$$!; sleep 5;
+         ollama pull "$${OSAI_OLLAMA_MODEL:-llama3.2:3b}";
+         kill $$srv'
+    environment:
+      OSAI_OLLAMA_MODEL: ${OSAI_OLLAMA_MODEL:-llama3.2:3b}
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - egress
+
+  # Runtime model server — NO egress (internal labnet), serves the pre-pulled volume.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: ${OSAI_OLLAMA_MEM:-4g}
+    cpus: ${OSAI_OLLAMA_CPUS:-2.0}
+    restart: unless-stopped
+    networks:
+      - labnet          # internal: no internet egress; not published to the host
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # Point the existing L01 lab target at the real model instead of the mock.
+  labtarget-l01:
+    environment:
+      OSAI_OLLAMA: "1"
+      OSAI_OLLAMA_URL: http://ollama:11434
+      OSAI_OLLAMA_MODEL: ${OSAI_OLLAMA_MODEL:-llama3.2:3b}
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+networks:
+  egress:
+    driver: bridge
+
+volumes:
+  ollama-models:

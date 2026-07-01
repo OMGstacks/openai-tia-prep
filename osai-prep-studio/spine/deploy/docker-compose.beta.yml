@@ -1,0 +1,92 @@
+# OSAI Prep Studio — controlled BETA stack (grader + web front-end), auth ON.
+#
+# This is the deploy-ready, fail-closed configuration:
+#   * the grader runs with OSAI_PUBLIC=1, so it REFUSES to start unless auth is on
+#     with a strong, non-default signing secret (osai_spine.auth.enforce_deploy_policy);
+#   * the token-signing secret is loaded from a Docker SECRET FILE, never an env var
+#     or image layer (OSAI_AUTH_SECRET_FILE -> /run/secrets/osai_auth_secret);
+#   * cookie session mode + CSRF are on, cookies are Secure (HTTPS-only) by default;
+#   * the grader is NOT published — only the web app is reachable, and it proxies
+#     /api/* to the grader over an internal network (no CORS, no direct grader exposure);
+#   * both services keep the read-only rootfs / dropped caps / resource limits.
+#
+# Bring-up (full runbook in deploy/README.md):
+#   cd osai-prep-studio/spine/deploy
+#   mkdir -p secrets && openssl rand -hex 32 > secrets/osai_auth_secret   # git-ignored
+#   export OSAI_SERVER_SEED="$(openssl rand -hex 32)"                     # flag-derivation seed
+#   export OSAI_ADMIN_USERS="you@example.com"                             # instructor account(s)
+#   docker compose -f docker-compose.beta.yml up --build -d
+#
+# Put a TLS-terminating reverse proxy in front of `web` for real public exposure
+# (Secure cookies require HTTPS). For a closed LAN trial over plain HTTP, set
+# OSAI_COOKIE_SECURE=0 in the web-facing environment.
+
+services:
+  grader:
+    build:
+      context: ../../..
+      dockerfile: osai-prep-studio/spine/deploy/Dockerfile.grader
+    image: osai-grader:beta
+    environment:
+      OSAI_PUBLIC: "1"                 # arm the fail-closed deploy guard
+      OSAI_AUTH: "1"                   # required by the guard
+      OSAI_COOKIE_AUTH: "1"            # HttpOnly/Secure session cookie + CSRF
+      OSAI_COOKIE_SECURE: ${OSAI_COOKIE_SECURE:-1}
+      OSAI_AUTH_SECRET_FILE: /run/secrets/osai_auth_secret
+      OSAI_ADMIN_USERS: ${OSAI_ADMIN_USERS:?set OSAI_ADMIN_USERS to your instructor username(s)}
+      OSAI_SERVER_SEED: ${OSAI_SERVER_SEED:?set OSAI_SERVER_SEED to a strong random value}
+      # LLM tutor + transcript judging stay OFF here; enable the tutor with the
+      # docker-compose.llm.yml overlay once the key is in a secret, and keep
+      # OSAI_LLM_TRANSCRIPTS unset until the data-handling controls are met.
+    secrets:
+      - osai_auth_secret
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    networks:
+      - appnet                         # internal only — not published to the host
+
+  web:
+    build:
+      context: ../../..
+      dockerfile: osai-prep-studio/spine/deploy/Dockerfile.web
+    image: osai-web:beta
+    environment:
+      # Server-side proxy target: the browser hits web/api/*, web forwards to the grader.
+      OSAI_API_URL: http://grader:8077
+    depends_on:
+      grader:
+        condition: service_healthy
+    ports:
+      - "${OSAI_WEB_PORT:-8080}:3000"   # the ONLY published service (front a TLS proxy)
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    cpus: 1.0
+    restart: unless-stopped
+    networks:
+      - appnet                          # reach the grader
+      - edge                            # reachable from the host / reverse proxy
+
+secrets:
+  osai_auth_secret:
+    file: ./secrets/osai_auth_secret
+
+networks:
+  appnet:
+    driver: bridge
+    internal: true                      # grader<->web only; no internet egress
+  edge:
+    driver: bridge

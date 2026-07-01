@@ -5,3 +5,8 @@
 **/.pytest_cache
 **/*.db
 node_modules
+# Web build artifacts (Dockerfile.web rebuilds these inside the image).
+**/.next
+**/tsconfig.tsbuildinfo
+# Never ship deployment secrets into a build context.
+**/deploy/secrets

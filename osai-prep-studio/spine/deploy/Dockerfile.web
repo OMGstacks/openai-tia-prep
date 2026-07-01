@@ -1,0 +1,39 @@
+# OSAI Prep Studio — Next.js front-end (production image, standalone output).
+# Build context = repo root (so the whole web/ tree is available).
+#   docker build -f osai-prep-studio/spine/deploy/Dockerfile.web -t osai-web:dev .
+#
+# The browser only ever talks to THIS server; it proxies /api/* to the grader
+# (OSAI_API_URL, set at runtime) — so the grader URL is never baked into the image
+# and no CORS surface is exposed to the browser.
+
+# --- deps: install once, cached on the lockfile -----------------------------
+FROM node:20-slim AS deps
+WORKDIR /app
+COPY osai-prep-studio/web/package.json osai-prep-studio/web/package-lock.json ./
+RUN npm ci
+
+# --- build: compile the standalone server bundle ----------------------------
+FROM node:20-slim AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY osai-prep-studio/web ./
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# --- runner: minimal, non-root ----------------------------------------------
+FROM node:20-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+# The standalone output bundles only the server + traced deps it actually needs.
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+RUN useradd -m -u 10002 osaiweb && chown -R osaiweb:osaiweb /app
+USER osaiweb
+EXPOSE 3000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=8s --retries=5 \
+    CMD node -e "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+CMD ["node", "server.js"]

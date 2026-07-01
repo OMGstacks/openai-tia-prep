@@ -10,6 +10,7 @@ from osai_spine.auth import (
     _encode_password,
     auth_enabled,
     enforce_deploy_policy,
+    read_secret,
 )
 
 
@@ -101,6 +102,19 @@ def test_deploy_guard_fails_closed_on_public():
     enforce_deploy_policy(env={"OSAI_PUBLIC": "1", "OSAI_AUTH": "1", "OSAI_AUTH_SECRET": "x" * 40})
     # explicit demo escape hatch
     enforce_deploy_policy(env={"OSAI_PUBLIC": "1", "OSAI_ALLOW_INSECURE_PUBLIC_DEMO": "1"})
+
+
+def test_auth_secret_resolves_from_file(tmp_path):
+    # Docker-secret file convention: OSAI_AUTH_SECRET_FILE beats the inline env var,
+    # and the deploy guard reads the file-provided secret too.
+    secret_file = tmp_path / "osai_auth_secret"
+    secret_file.write_text("﻿" + "f" * 40 + "\n", encoding="utf-8")  # BOM + trailing ws tolerated
+    env = {"OSAI_AUTH_SECRET_FILE": str(secret_file), "OSAI_AUTH_SECRET": "inline-loser"}
+    assert read_secret(env) == "f" * 40                       # file wins, stripped
+    enforce_deploy_policy(env={"OSAI_PUBLIC": "1", "OSAI_AUTH": "1", **env})  # strong file secret -> ok
+    # a missing/empty file falls back to the inline env var
+    assert read_secret({"OSAI_AUTH_SECRET_FILE": str(tmp_path / "nope"),
+                        "OSAI_AUTH_SECRET": "x" * 40}) == "x" * 40
 
 
 def test_unknown_user_verifies_against_dummy_hash():
