@@ -29,6 +29,7 @@ DEFAULT_SOURCES = [
     ("reference/mitre-atlas.md", "A1"),
     ("reference/owasp-agentic-threats.md", "A1"),
     ("reference/nist-ai-rmf.md", "A1"),
+    ("reference/ai-redteam-tooling.md", "A2"),
     ("reference/glossary.md", "A3"),
 ]
 
