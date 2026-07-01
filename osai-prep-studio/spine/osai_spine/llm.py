@@ -101,6 +101,7 @@ def status() -> dict:
         "transcripts_enabled": transcripts_enabled(),
         "sdk_installed": sdk_available(),
         "key_present": key_present(),
+        "base_url_override": bool(os.environ.get("OSAI_ANTHROPIC_BASE_URL")),
         "model_quality": MODEL_QUALITY,
         "model_bulk": MODEL_BULK,
     }
@@ -110,15 +111,21 @@ class LLMProvider:
     """Thin wrapper over the Anthropic Messages API. Constructed only when the seam
     is enabled; callers always wrap ``complete`` with their own offline fallback."""
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, base_url: str | None = None):
         self.model = model or MODEL_QUALITY
+        # In some hosts (e.g. a Claude Code session) ANTHROPIC_BASE_URL points at the
+        # agent's proxy; OSAI_ANTHROPIC_BASE_URL lets the app target its own endpoint
+        # (e.g. https://api.anthropic.com) independently of that.
+        self.base_url = base_url or os.environ.get("OSAI_ANTHROPIC_BASE_URL") or None
         self._client = None
 
     @property
     def client(self):
         if self._client is None:
             from anthropic import Anthropic
-            self._client = Anthropic()  # reads ANTHROPIC_API_KEY from the environment
+            kwargs = {"base_url": self.base_url} if self.base_url else {}
+            # reads ANTHROPIC_API_KEY from the environment; base_url optional override
+            self._client = Anthropic(**kwargs)
         return self._client
 
     def complete(self, system: str, user: str, *, model: str | None = None,

@@ -79,6 +79,15 @@ def test_status_never_leaks_the_key_value(monkeypatch):
     assert "transcripts_enabled" in st
 
 
+def test_base_url_override_from_env(monkeypatch):
+    monkeypatch.setenv("OSAI_ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    p = llm_mod.LLMProvider()
+    assert p.base_url == "https://api.anthropic.com"
+    assert llm_mod.status()["base_url_override"] is True
+    monkeypatch.delenv("OSAI_ANTHROPIC_BASE_URL", raising=False)
+    assert llm_mod.LLMProvider().base_url is None
+
+
 def test_transcripts_gate_is_second_optin(monkeypatch):
     # Even with the base tutor gate on, transcript paths stay OFF without the second
     # explicit opt-in — the learner-content HOLD enforced in code.

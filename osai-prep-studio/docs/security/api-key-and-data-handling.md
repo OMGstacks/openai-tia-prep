@@ -83,6 +83,21 @@ The transcript-judging paths remain OFF until **all** of these hold:
 Checked boxes are implemented in this repo; unchecked boxes are operational controls the
 deployer must complete **before** flipping `OSAI_LLM_TRANSCRIPTS=1`.
 
+## 4a. Setup steps (getting from zero to a working key)
+
+1. **Create the key** — console.anthropic.com → API Keys → Create Key (`sk-ant-…`).
+   Billed to your Anthropic API account (separate from any Claude.ai subscription).
+2. **Place it** in the runtime for wherever the code runs (§2): the web-environment
+   secret config, a shell `export`, a git-ignored `.env`, or a Docker secret.
+3. **Base-URL gotcha** — some hosts (e.g. a Claude Code session) set
+   `ANTHROPIC_BASE_URL` to an *agent* proxy. So the app doesn't inherit that, set
+   `OSAI_ANTHROPIC_BASE_URL=https://api.anthropic.com` for the app (the provider
+   passes it explicitly), or run the app on a host where `ANTHROPIC_BASE_URL` isn't
+   the agent proxy. With neither set, the SDK's default endpoint is used.
+4. **Enable + verify** — `export OSAI_LLM=1` then `python -m osai_spine.cli llm`
+   (§5). `GET /health` then shows `"llm": {"enabled": true}` and tutor answers are
+   tagged `[AI · grounded]`.
+
 ## 5. Safe verification (presence, not value)
 
 The only sanctioned check prints **yes/no** — never the value, prefix, suffix, length,
