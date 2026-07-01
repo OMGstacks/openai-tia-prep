@@ -37,7 +37,7 @@ No bulk generation without dedupe; no target-count padding; no bank without a gr
 |---|---|---|---|
 | **1** | `architecture_reasoning`, `lab_grounded` | Grounded + cited + **required fact present** + **no invention** (anti-fabrication), over a new `reference/osai-studio-architecture.md` corpus doc | **✅ landed** — graders + gate + 28 vetted seeds (15 + 13) + grader-teeth test |
 | **2** | `tool_use_judgment` | Grade the **decision** — the correct call (block / require-approval / untrusted / …) must appear and the wrong call must not; grounded in a new `agentic-tool-use-decisions.md` corpus doc | **✅ landed** — reuses the grounded grader via `_GROUNDED_BANKS`; 13 seeds; grader-teeth test asserts a wrong decision fails |
-| **3** | `stale_claim_detection` | Given a claim, the tutor must **flag it stale**, name the fresher source, and answer/abstain/caveat correctly | ⬜ |
+| **3** | `stale_claim_detection` | A rule-based staleness detector (`staleness.py`) flags version-sensitive/outdated claims against current ground truth and names the fresher fact; grader checks the **verdict** | **✅ landed** — `tutor.ask(mode="stale")` + grader hard-gated at 1.0; 20 seeds (10 stale / 10 fresh); module + grader-teeth tests |
 | **4** | `report_quality` | Reuse the existing `ReportReviewer` rubric — item = finding + expected rubric outcome; assert score/pass matches | ⬜ |
 
 ## Target distribution (~750; ranges, not exact equality)
@@ -65,6 +65,18 @@ No bulk generation without dedupe; no target-count padding; no bank without a gr
 - All **CI and ship gates green**, and every bank passes **independently**.
 - The gate report includes per-bank: `item_count`, `source_corpus`, `grader_name`,
   `pass_rate`, and failure examples.
+
+## Phase 3 result
+
+- New `staleness.py` — a rule-based detector keyed to current ground truth (OWASP is the
+  2025 list; Excessive Agency is LLM06 not LLM08; CI needs no live LLM; the gold set is no
+  longer four banks; 750 is not reached by padding). `check_claim` returns
+  `{stale, fresher, guidance}`.
+- `tutor.ask(mode="stale")` routes to it; `goldset.py` grades the **verdict**
+  (`stale == expected_stale`, and a stale flag must name a fresher fact), hard-gated at 1.0.
+- 20 vetted seeds (10 stale / 10 fresh — no false positives). A module test and a
+  grader-teeth test (missed-stale, no-fresher, false-positive all fail). Gold set now
+  **341 items**, ship gate PASS, suite 165 green.
 
 ## Phase 2 result
 

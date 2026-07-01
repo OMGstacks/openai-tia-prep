@@ -2701,6 +2701,166 @@
       "skill_tags": [
         "tool-use"
       ]
+    },
+    {
+      "id": "SC-owasp2023",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The current OWASP Top 10 for LLM Applications is the 2023 version.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-owasp2024",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The latest OWASP LLM Top 10 is the 2024 release.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-agency08",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "In OWASP, Excessive Agency is category LLM08.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-ci-llm",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The test suite requires a live LLM to run in CI.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-ci-key",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "A real model API key is required for CI to pass.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-4banks",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The gold set only has four banks.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-pad750",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "You can reach 750 gold-set items by padding recall questions.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-pi03",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Prompt injection is category LLM03 in the OWASP LLM Top 10.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-pi05",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Prompt injection sits at LLM05 in the current OWASP list.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-goldset4",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The gold set is made up of 4 banks total.",
+      "expected_stale": true
+    },
+    {
+      "id": "SC-ok-pi01",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Prompt injection is LLM01:2025 in the OWASP LLM Top 10.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-agency06",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Excessive Agency is LLM06:2025 in the OWASP LLM Top 10.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-abstain",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The tutor abstains when the corpus cannot support an answer.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-offline",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The spine core runs its tests with no external dependencies and no key.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-vector08",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Vector and Embedding Weaknesses is LLM08:2025.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-atlas",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "MITRE ATLAS catalogs adversarial machine-learning tactics and techniques.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-sysprompt",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "System Prompt Leakage is LLM07:2025 in the 2025 OWASP list.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-signalb",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Two-signal grading requires a produced evidence token, not just a model string.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-supply",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "Supply Chain is LLM03:2025 in the OWASP LLM Top 10.",
+      "expected_stale": false
+    },
+    {
+      "id": "SC-ok-banks",
+      "bank": "stale_claim_detection",
+      "mode": "stale",
+      "difficulty": "hard",
+      "prompt": "The gold set has several grader-backed banks.",
+      "expected_stale": false
     }
   ]
 }

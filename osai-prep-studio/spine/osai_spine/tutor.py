@@ -287,6 +287,18 @@ class Tutor:
         self.llm = llm  # optional LLMProvider; None -> extractive (default)
 
     def ask(self, query: str, mode: str = "tutor", k: int = 5) -> dict:
+        # Stale-claim check (Bank Expansion Epic Phase 3): flag version-sensitive/outdated
+        # claims against current ground truth and name the fresher fact, so the tutor
+        # caveats rather than repeats a stale claim. Deterministic, no retrieval.
+        if mode == "stale":
+            from .staleness import check_claim
+            v = check_claim(query)
+            return {
+                "refused": False, "abstained": False, "mode": mode,
+                "stale": v["stale"], "fresher": v["fresher"], "guidance": v["guidance"],
+                "answer": v["fresher"] or "No stale claim detected; the statement reflects current framework/studio state.",
+                "citations": [],
+            }
         # Safety scope guard runs before retrieval — refusals never touch the corpus.
         refusal = scope_refusal(query)
         if refusal:

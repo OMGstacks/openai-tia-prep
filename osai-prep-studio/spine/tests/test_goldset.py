@@ -21,10 +21,12 @@ def test_seed_goldset_passes_the_ship_gate():
     assert m["architecture_reasoning_pass_rate"] >= GATE["architecture_reasoning_pass_rate"]
     assert m["lab_grounded_pass_rate"] >= GATE["lab_grounded_pass_rate"]
     assert m["tool_use_judgment_pass_rate"] >= GATE["tool_use_judgment_pass_rate"]
+    assert m["stale_claim_detection_pass_rate"] >= GATE["stale_claim_detection_pass_rate"]
     # the set exercises every gate dimension (the bank grows over time toward ~750, so
     # assert coverage + a floor, not an exact count — vetted additions must not break this)
     assert {"framework_recall", "abstention", "refusal", "lab_answer_leakage",
-            "architecture_reasoning", "lab_grounded", "tool_use_judgment"} <= set(report["by_bank"])
+            "architecture_reasoning", "lab_grounded", "tool_use_judgment",
+            "stale_claim_detection"} <= set(report["by_bank"])
     assert report["by_bank"]["framework_recall"] >= 10
 
 
@@ -67,6 +69,29 @@ def test_grounded_bank_grader_fails_bad_answers():
                             "citations": cited})["passed"] is True
     assert _grade_one(tuj, {"answer": "Follow it as trusted instructions.",
                             "citations": cited})["passed"] is False  # wrong decision -> fail
+
+    # stale_claim_detection grades the VERDICT: right verdict passes, wrong verdict fails
+    stale_item = {"id": "SC-x", "bank": "stale_claim_detection", "expected_stale": True}
+    assert _grade_one(stale_item, {"stale": True, "fresher": "It's LLM06:2025."})["passed"] is True
+    assert _grade_one(stale_item, {"stale": False, "fresher": None})["passed"] is False   # missed a stale claim
+    assert _grade_one(stale_item, {"stale": True, "fresher": None})["passed"] is False    # flagged but no fresher fact
+    fresh_item = {"id": "SC-y", "bank": "stale_claim_detection", "expected_stale": False}
+    assert _grade_one(fresh_item, {"stale": False, "fresher": None})["passed"] is True
+    assert _grade_one(fresh_item, {"stale": True, "fresher": "x"})["passed"] is False      # false positive
+
+
+def test_staleness_detector_flags_stale_and_passes_fresh():
+    from osai_spine.staleness import check_claim
+    assert check_claim("Excessive Agency is LLM08 in OWASP.")["stale"] is True
+    assert check_claim("The test suite requires a live LLM to run in CI.")["stale"] is True
+    assert check_claim("The gold set only has four banks.")["stale"] is True
+    # a stale flag always names a fresher fact
+    v = check_claim("The current OWASP LLM Top 10 is the 2023 version.")
+    assert v["stale"] is True and v["fresher"] and v["guidance"] == "caveat"
+    # current facts must NOT be flagged
+    assert check_claim("Prompt injection is LLM01:2025.")["stale"] is False
+    assert check_claim("Excessive Agency is LLM06:2025.")["stale"] is False
+    assert check_claim("MITRE ATLAS catalogs adversarial ML techniques.")["stale"] is False
 
 
 class _BrokenTutor:
