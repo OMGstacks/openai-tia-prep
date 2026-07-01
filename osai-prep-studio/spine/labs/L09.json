@@ -1,0 +1,28 @@
+{
+  "id": "L09",
+  "title": "RAG poisoning (write-path persistence)",
+  "ai300_module": "M5",
+  "readiness_gate": "R4",
+  "difficulty": "hard",
+  "kill_chain_stage": "persistence",
+  "frameworks": { "owasp": ["LLM04:2025"], "atlas": ["AML.T0020"], "agentic": [] },
+  "reuse_asset": "indirect_prompt_injection",
+  "complements": "AI Goat RAG poisoning",
+  "attack_graph": "attack-graphs/L09.yml",
+  "defense_variants": ["D0", "D4", "D7"],
+  "two_signal_grading": {
+    "detector_required": "indirect_prompt_injection",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l09.txt" },
+      { "type": "db_state", "path": "/state/vector_index.json" },
+      { "type": "audit_log", "path": "/logs/index_audit.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "write-path-as-untrusted concept", "high-rank poison-chunk technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "seeded pgvector index", "ingestion pipeline"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.75,
+  "reset_command": "make reset-lab L=L09"
+}

@@ -1,0 +1,20 @@
+# OSAI Prep Studio — deliberately-vulnerable lab-target image (stdlib only).
+# Build context = repo root.
+#   docker build -f osai-prep-studio/spine/deploy/Dockerfile.labtarget -t osai-labtarget:dev .
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/spine \
+    OSAI_LAB=L01 \
+    OSAI_PORT=9001
+
+WORKDIR /app/spine
+COPY osai-prep-studio/spine /app/spine
+RUN useradd -m -u 10002 osai && chown -R osai:osai /app
+
+USER osai
+EXPOSE 9001
+HEALTHCHECK --interval=10s --timeout=3s --start-period=3s --retries=5 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9001/health').status==200 else 1)"
+CMD ["python", "-m", "osai_spine.labserver"]

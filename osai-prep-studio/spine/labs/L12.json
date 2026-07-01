@@ -1,0 +1,28 @@
+{
+  "id": "L12",
+  "title": "MCP tool shadowing & rug-pull",
+  "ai300_module": "M6",
+  "readiness_gate": "R4",
+  "difficulty": "hard",
+  "kill_chain_stage": "execution",
+  "frameworks": { "owasp": ["LLM06:2025"], "atlas": ["AML.T0053"], "agentic": ["T2", "T12"] },
+  "reuse_asset": "excessive_agency_probe",
+  "complements": "Damn Vulnerable MCP ch.4-7",
+  "attack_graph": "attack-graphs/L12.yml",
+  "defense_variants": ["D0", "D5", "D7"],
+  "two_signal_grading": {
+    "detector_required": "excessive_agency_probe",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l12.txt" },
+      { "type": "tool_call_log", "path": "/logs/tool_calls.jsonl" },
+      { "type": "audit_log", "path": "/logs/tool_hashes.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "tool-trust-on-first-use concept", "definition-swap-after-trust technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "lab MCP tool server", "two registered tools"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.75,
+  "reset_command": "make reset-lab L=L12"
+}

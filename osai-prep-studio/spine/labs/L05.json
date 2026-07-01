@@ -1,0 +1,27 @@
+{
+  "id": "L05",
+  "title": "Markdown / zero-click exfil",
+  "ai300_module": "M3",
+  "readiness_gate": "R3",
+  "difficulty": "medium",
+  "kill_chain_stage": "exfiltration-impact",
+  "frameworks": { "owasp": ["LLM05:2025"], "atlas": ["AML.T0024"], "agentic": [] },
+  "reuse_asset": "improper_output_handling",
+  "complements": "PortSwigger insecure output handling",
+  "attack_graph": "attack-graphs/L05.yml",
+  "defense_variants": ["D0", "D3", "D7"],
+  "two_signal_grading": {
+    "detector_required": "improper_output_handling",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l05.txt" },
+      { "type": "callback_hit", "path": "/logs/callback.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "output-as-untrusted concept", "markdown-image exfil technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local lab container", "lab callback server"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.25,
+  "reset_command": "make reset-lab L=L05"
+}

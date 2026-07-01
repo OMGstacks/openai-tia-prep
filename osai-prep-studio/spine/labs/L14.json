@@ -1,0 +1,27 @@
+{
+  "id": "L14",
+  "title": "Multi-agent goal/intent manipulation",
+  "ai300_module": "M4",
+  "readiness_gate": "R4",
+  "difficulty": "hard",
+  "kill_chain_stage": "impact",
+  "frameworks": { "owasp": ["LLM01:2025"], "atlas": ["AML.T0051.001"], "agentic": ["T5", "T6", "T13"] },
+  "reuse_asset": "indirect_prompt_injection",
+  "complements": "fills a gap — few public multi-agent labs",
+  "attack_graph": "attack-graphs/L14.yml",
+  "defense_variants": ["D0", "D4", "D7"],
+  "two_signal_grading": {
+    "detector_required": "indirect_prompt_injection",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l14.txt" },
+      { "type": "orchestration_log", "path": "/logs/agent_orchestration.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "cross-agent-output-is-untrusted concept", "steer-agent-A-to-coerce-agent-B technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "two cooperating lab agents"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 1.0,
+  "reset_command": "make reset-lab L=L14"
+}

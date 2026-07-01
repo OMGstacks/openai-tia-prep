@@ -1,0 +1,24 @@
+{
+  "id": "L01",
+  "title": "Direct injection & guardrail bypass",
+  "ai300_module": "M3",
+  "readiness_gate": "R3",
+  "difficulty": "easy",
+  "kill_chain_stage": "access-injection",
+  "frameworks": { "owasp": ["LLM01:2025"], "atlas": ["AML.T0051.000"], "agentic": [] },
+  "reuse_asset": "direct_prompt_injection",
+  "complements": "Lakera Gandalf",
+  "attack_graph": "attack-graphs/L01.yml",
+  "defense_variants": ["D0", "D1", "D2", "D7"],
+  "two_signal_grading": {
+    "detector_required": "direct_prompt_injection",
+    "evidence_tokens": [{ "type": "flag", "path": "/flags/l01.txt" }]
+  },
+  "hint_ladder": ["direction", "instruction-hierarchy concept", "delimiter-escape technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local lab container"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.25,
+  "reset_command": "make reset-lab L=L01"
+}

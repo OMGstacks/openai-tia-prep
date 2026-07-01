@@ -1,0 +1,6 @@
+# Optional: the generative LLM layer (osai_spine.llm — the model router).
+# The platform runs fully offline without this; installing it + setting
+# ANTHROPIC_API_KEY + OSAI_LLM=1 lights up the grounded generative tutor.
+# The key is read from the environment only — never hardcode or commit it.
+-r requirements.txt
+anthropic>=0.40

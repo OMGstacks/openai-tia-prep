@@ -1,0 +1,27 @@
+{
+  "id": "L02",
+  "title": "Indirect injection via RAG document",
+  "ai300_module": "M5",
+  "readiness_gate": "R3",
+  "difficulty": "medium",
+  "kill_chain_stage": "access-injection",
+  "frameworks": { "owasp": ["LLM01:2025"], "atlas": ["AML.T0051.001"], "agentic": [] },
+  "reuse_asset": "indirect_prompt_injection",
+  "complements": "PortSwigger indirect prompt injection",
+  "attack_graph": "attack-graphs/L02.yml",
+  "defense_variants": ["D0", "D4", "D7"],
+  "two_signal_grading": {
+    "detector_required": "indirect_prompt_injection",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l02.txt" },
+      { "type": "audit_log", "path": "/logs/policy_decisions.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "retrieval-as-untrusted concept", "payload-in-document technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "seeded fake corpus", "lab callback server"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.5,
+  "reset_command": "make reset-lab L=L02"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "L03",
+  "title": "Encoded / obfuscated payload smuggling",
+  "ai300_module": "M3",
+  "readiness_gate": "R3",
+  "difficulty": "medium",
+  "kill_chain_stage": "access-injection",
+  "frameworks": { "owasp": ["LLM01:2025"], "atlas": ["AML.T0051.001"], "agentic": [] },
+  "reuse_asset": "encoded_injection_payload",
+  "complements": "garak encoding probes",
+  "attack_graph": "attack-graphs/L03.yml",
+  "defense_variants": ["D0", "D2", "D7"],
+  "two_signal_grading": {
+    "detector_required": "encoded_injection_payload",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l03.txt" },
+      { "type": "audit_log", "path": "/logs/filter_decisions.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "filter-blindspot concept", "decode-then-recheck technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local lab container", "naive keyword filter D2"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.25,
+  "reset_command": "make reset-lab L=L03"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "L16",
+  "title": "Excessive agency -> destructive tool action",
+  "ai300_module": "M4",
+  "readiness_gate": "R4",
+  "difficulty": "medium",
+  "kill_chain_stage": "impact",
+  "frameworks": { "owasp": ["LLM06:2025"], "atlas": ["AML.T0053"], "agentic": ["T2", "T3"] },
+  "reuse_asset": "excessive_agency_probe",
+  "complements": "PortSwigger excessive agency",
+  "attack_graph": "attack-graphs/L16.yml",
+  "defense_variants": ["D0", "D5", "D7"],
+  "two_signal_grading": {
+    "detector_required": "excessive_agency_probe",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l16.txt" },
+      { "type": "db_state", "path": "/state/records.json" },
+      { "type": "tool_call_log", "path": "/logs/tool_calls.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "least-privilege boundary concept", "no-human-gate coercion technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "over-permissioned destructive tool"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.5,
+  "reset_command": "make reset-lab L=L16"
+}

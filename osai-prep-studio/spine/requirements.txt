@@ -1,0 +1,6 @@
+# Production deps for the FastAPI grader (osai_spine.api).
+# The spine core (taxonomy/flags/manifest/validator) and the stdlib service are
+# dependency-free; these are only needed for the deployable API and Docker images.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2

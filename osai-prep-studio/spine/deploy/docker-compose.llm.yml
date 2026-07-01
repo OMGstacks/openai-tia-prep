@@ -1,0 +1,35 @@
+# Live-LLM overlay for the grader — loads the Anthropic key from a Docker SECRET
+# (a file mounted at /run/secrets/anthropic_api_key), never an env var or image layer.
+#
+# Usage:
+#   1) put your key in a git-ignored file (the deploy/secrets/ dir is ignored + agent-denied):
+#        mkdir -p deploy/secrets && printf '%s' "$ANTHROPIC_API_KEY" > deploy/secrets/anthropic_api_key
+#      (or point the secret at an external/manager-provided source instead of a file)
+#   2) build with the SDK and run with the overlay:
+#        cd osai-prep-studio/spine/deploy
+#        docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build
+#   3) verify inside the container (presence only, never the value):
+#        docker compose exec grader python -m osai_spine.cli llm
+#
+# The read-only rootfs / dropped caps / limits from the base compose still apply;
+# secrets mount under /run/secrets independently of the read-only root.
+
+services:
+  grader:
+    build:
+      args:
+        INSTALL_LLM: "true"       # include the anthropic SDK in the image
+    environment:
+      OSAI_LLM: "1"               # enable the tutor generative path
+      # Read the key from the secret FILE, not an env var:
+      ANTHROPIC_API_KEY_FILE: /run/secrets/anthropic_api_key
+      # Target Anthropic directly, independent of any agent proxy:
+      OSAI_ANTHROPIC_BASE_URL: ${OSAI_ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      # NOTE: OSAI_LLM_TRANSCRIPTS stays UNSET — the learner-transcript paths remain
+      # held OFF until the data-handling controls are met (see the security doc).
+    secrets:
+      - anthropic_api_key
+
+secrets:
+  anthropic_api_key:
+    file: ./secrets/anthropic_api_key

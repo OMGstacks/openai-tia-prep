@@ -1,0 +1,74 @@
+name: OSAI Spine
+
+on:
+  push:
+    branches: [ main, master, "claude/**" ]
+    paths:
+      - "osai-prep-studio/spine/**"
+      - "projects/llm-log-triage/src/detectors.py"
+      - ".github/workflows/osai-spine.yml"
+  pull_request:
+    paths:
+      - "osai-prep-studio/spine/**"
+      - "projects/llm-log-triage/src/detectors.py"
+
+jobs:
+  spine:
+    name: spine core (stdlib-only)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: osai-prep-studio/spine
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test deps (package core is stdlib-only)
+        run: pip install pytest
+      - name: Validate lab manifests (taxonomy gate)
+        run: python -m osai_spine.cli validate-manifests
+      - name: Run spine test suite (FastAPI tests auto-skip here)
+        run: python -m pytest -q
+      - name: Tutor ship gate (gold set — no hallucination / abstain / refuse / no leak)
+        run: python -m osai_spine.cli goldset
+      - name: Smoke-test the catalog command
+        run: python -m osai_spine.cli catalog
+
+  prod-api:
+    name: prod API (FastAPI)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: osai-prep-studio/spine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install prod + dev deps
+        run: pip install -r requirements-dev.txt
+      - name: Run full suite incl. FastAPI api tests
+        run: python -m pytest -q
+
+  docker:
+    name: docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose config
+        run: docker compose -f osai-prep-studio/spine/deploy/docker-compose.yml config
+      - name: Build grader image
+        run: docker build -f osai-prep-studio/spine/deploy/Dockerfile.grader -t osai-grader:ci .
+      - name: Build lab-target image
+        run: docker build -f osai-prep-studio/spine/deploy/Dockerfile.labtarget -t osai-labtarget:ci .
+      - name: Smoke-run the grader container
+        run: |
+          docker run -d --name grader -p 8077:8077 -e OSAI_SERVER_SEED=ci osai-grader:ci
+          for i in $(seq 1 15); do curl -sf http://127.0.0.1:8077/health && break; sleep 2; done
+          curl -sf http://127.0.0.1:8077/health | grep -q '"status":"ok"'
+          docker rm -f grader

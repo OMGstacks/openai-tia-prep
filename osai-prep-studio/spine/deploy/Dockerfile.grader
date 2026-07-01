@@ -1,0 +1,31 @@
+# OSAI Prep Studio — grader API image.
+# Build context = repo root (needs both the spine and the reused detection engine).
+#   docker build -f osai-prep-studio/spine/deploy/Dockerfile.grader -t osai-grader:dev .
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/spine \
+    OSAI_DETECTORS_PATH=/app/engine/detectors.py
+
+WORKDIR /app/spine
+
+# Reuse-first: vendor the tested detection engine (one engine, one taxonomy).
+COPY projects/llm-log-triage/src/detectors.py /app/engine/detectors.py
+# The spine package + lab manifests + prod deps.
+COPY osai-prep-studio/spine /app/spine
+# The tutor's curated source corpus (reference docs) — see 09a-source-library.md.
+COPY reference /app/reference
+# Optional generative LLM layer: pass --build-arg INSTALL_LLM=true to include the
+# anthropic SDK (off by default to keep the image lean and the platform offline-first).
+ARG INSTALL_LLM=false
+RUN pip install --no-cache-dir -r requirements.txt \
+    && if [ "$INSTALL_LLM" = "true" ]; then pip install --no-cache-dir -r requirements-llm.txt; fi \
+    && useradd -m -u 10001 osai \
+    && chown -R osai:osai /app
+
+USER osai
+EXPOSE 8077
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8077/health').status==200 else 1)"
+CMD ["uvicorn", "osai_spine.api:app", "--host", "0.0.0.0", "--port", "8077"]

@@ -1,0 +1,28 @@
+{
+  "id": "L15",
+  "title": "Agent memory poisoning (cross-session persistence)",
+  "ai300_module": "M4",
+  "readiness_gate": "R4",
+  "difficulty": "hard",
+  "kill_chain_stage": "persistence",
+  "frameworks": { "owasp": ["LLM01:2025"], "atlas": ["AML.TA0003"], "agentic": ["T1"] },
+  "reuse_asset": "indirect_prompt_injection",
+  "complements": "fills a gap — few public agent-memory labs",
+  "attack_graph": "attack-graphs/L15.yml",
+  "defense_variants": ["D0", "D4", "D7"],
+  "two_signal_grading": {
+    "detector_required": "indirect_prompt_injection",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l15.txt" },
+      { "type": "db_state", "path": "/state/agent_memory.json" },
+      { "type": "audit_log", "path": "/logs/memory_writes.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "persistent-memory-as-untrusted concept", "delayed-trigger payload technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "agent with persistent memory store"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.75,
+  "reset_command": "make reset-lab L=L15"
+}

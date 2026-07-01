@@ -1,0 +1,58 @@
+# OSAI Prep Studio — grader + an isolated L01 lab target.
+# Demonstrates the platform threat model (13-platform-threat-model.md): the lab
+# target runs with read-only rootfs, no new privileges, all caps dropped, resource
+# limits, and on an INTERNAL network (no egress to the internet).
+#   cd osai-prep-studio/spine/deploy && docker compose up --build
+
+services:
+  grader:
+    build:
+      context: ../../..
+      dockerfile: osai-prep-studio/spine/deploy/Dockerfile.grader
+    image: osai-grader:dev
+    environment:
+      OSAI_SERVER_SEED: ${OSAI_SERVER_SEED:-dev-seed-change-me}
+    ports:
+      - "8077:8077"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    cpus: 1.0
+    networks:
+      - edge
+
+  labtarget-l01:
+    build:
+      context: ../../..
+      dockerfile: osai-prep-studio/spine/deploy/Dockerfile.labtarget
+    image: osai-labtarget:dev
+    environment:
+      OSAI_SERVER_SEED: ${OSAI_SERVER_SEED:-dev-seed-change-me}
+      OSAI_LEARNER: ${OSAI_LEARNER:-demo-learner}
+      OSAI_LAB: L01
+      OSAI_PORT: "9001"
+    ports:
+      - "9001:9001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      - labnet      # internal: deny-all egress to the internet (threat model T3)
+
+networks:
+  edge:
+    driver: bridge
+  labnet:
+    driver: bridge
+    internal: true

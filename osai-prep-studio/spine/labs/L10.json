@@ -1,0 +1,28 @@
+{
+  "id": "L10",
+  "title": "Vector store cross-tenant leak",
+  "ai300_module": "M5",
+  "readiness_gate": "R4",
+  "difficulty": "hard",
+  "kill_chain_stage": "exfiltration",
+  "frameworks": { "owasp": ["LLM08:2025"], "atlas": ["AML.T0024"], "agentic": [] },
+  "reuse_asset": "sensitive_information_disclosure",
+  "complements": "fills a gap — no strong public multi-tenant RAG lab",
+  "attack_graph": "attack-graphs/L10.yml",
+  "defense_variants": ["D0", "D4", "D7"],
+  "two_signal_grading": {
+    "detector_required": "sensitive_information_disclosure",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l10.txt" },
+      { "type": "db_state", "path": "/state/retrieval.json" },
+      { "type": "audit_log", "path": "/logs/retrieval_audit.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "missing-tenant-filter concept", "similarity-query-across-tenants technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "multi-tenant pgvector index"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.75,
+  "reset_command": "make reset-lab L=L10"
+}

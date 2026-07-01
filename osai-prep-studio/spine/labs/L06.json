@@ -1,0 +1,27 @@
+{
+  "id": "L06",
+  "title": "Improper output handling -> XSS/SSRF sink",
+  "ai300_module": "M3",
+  "readiness_gate": "R3",
+  "difficulty": "medium",
+  "kill_chain_stage": "execution",
+  "frameworks": { "owasp": ["LLM05:2025"], "atlas": ["AML.T0024"], "agentic": [] },
+  "reuse_asset": "improper_output_handling",
+  "complements": "PortSwigger insecure output handling",
+  "attack_graph": "attack-graphs/L06.yml",
+  "defense_variants": ["D0", "D3", "D7"],
+  "two_signal_grading": {
+    "detector_required": "improper_output_handling",
+    "evidence_tokens": [
+      { "type": "flag", "path": "/flags/l06.txt" },
+      { "type": "callback", "path": "/logs/callback.jsonl" }
+    ]
+  },
+  "hint_ladder": ["direction", "output-is-untrusted concept", "active-content payload technique", "walkthrough"],
+  "report_required": true,
+  "ai_modes_allowed": ["NO_AI", "SOCRATIC_AI", "AI_ASSISTED", "ATTACK_WITH_AI"],
+  "authorized_scope": ["local docker network", "sandbox DOM sink", "lab callback server"],
+  "egress_policy": "deny_all_except_callback_container",
+  "cost_limit_usd": 0.5,
+  "reset_command": "make reset-lab L=L06"
+}

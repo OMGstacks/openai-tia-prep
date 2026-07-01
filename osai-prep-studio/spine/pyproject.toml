@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osai-prep-studio-spine"
+version = "0.1.0"
+description = "OSAI Prep Studio — Phase-1 spine: two-signal grader, retrieval tutor, progress/SRS, exam simulator, and the blue-team capstone, reusing the existing detection engine."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+# The core (taxonomy/flags/manifest/validator/tutor/progress/exam/capstone) is
+# stdlib-only — no required runtime deps. Extras pull in the deployable surfaces.
+dependencies = []
+
+[project.optional-dependencies]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2"]
+llm = ["anthropic>=0.40"]
+dev = ["pytest", "httpx"]
+
+[project.scripts]
+# `osai <subcommand>` from anywhere after `pip install -e .`
+osai = "osai_spine.cli:main"
+
+[tool.setuptools]
+packages = ["osai_spine"]
