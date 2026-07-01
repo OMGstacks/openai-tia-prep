@@ -30,15 +30,31 @@ CI and offline tests never need it
 live LLM paths activate only when OSAI_LLM=1
 ```
 
+> ⚠️ **A shared "Environment variables" box is NOT a secret store.** Some cloud/CI
+> environment configs (e.g. Claude Code on the web) expose a plaintext env-vars field
+> that is *visible to anyone using the environment* — and its own UI warns "don't add
+> secrets or credentials." Do **not** put `ANTHROPIC_API_KEY` there, nor hardcode it in
+> the Setup script (which is stored with the environment too).
+
 Delivery, in order of preference:
 
-1. **Claude Code / web runtime** — add `ANTHROPIC_API_KEY` in the environment / secret
-   configuration. The operator verifies *presence only* (§5), never the value.
-2. **GitHub Actions (only if live-LLM CI is truly needed)** — a repository/environment
+1. **(Recommended) Run the live LLM path where you control the runtime** — your laptop
+   (`export ANTHROPIC_API_KEY=…`, or a git-ignored `.env`) or your own deploy host /
+   container (a Docker secret or platform secret manager). The studio is **offline-first**:
+   a shared cloud/CI environment does **not** need the key, so keep it offline there.
+2. **Inside a cloud session, only via a real secret manager** — if the key must be
+   present in a hosted session, have the Setup script fetch it at start from a proper
+   secrets manager (Vault / cloud secret manager / Doppler / 1Password CLI), e.g.
+   `export ANTHROPIC_API_KEY="$(vault kv get -field=key secret/anthropic)"`. Only a
+   short-lived, least-privileged token to that manager lives in the environment — never
+   the key itself — and never `echo` it (setup logs).
+3. **GitHub Actions (only if live-LLM CI is truly needed)** — a repository/environment
    **secret** named `ANTHROPIC_API_KEY`, referenced as an env var in the workflow (not
    on the command line). CI is green **without** it by design, so this is rarely needed.
-3. **Docker / lab host** — a **secret file** or secret manager mounted at runtime (e.g.
+4. **Docker / lab host** — a **secret file** or secret manager mounted at runtime (e.g.
    Docker secrets under `/run/secrets/…`), never an image layer or source file.
+
+The operator verifies *presence only* (§5), never the value.
 
 Repo guards already in place:
 
@@ -87,8 +103,10 @@ deployer must complete **before** flipping `OSAI_LLM_TRANSCRIPTS=1`.
 
 1. **Create the key** — console.anthropic.com → API Keys → Create Key (`sk-ant-…`).
    Billed to your Anthropic API account (separate from any Claude.ai subscription).
-2. **Place it** in the runtime for wherever the code runs (§2): the web-environment
-   secret config, a shell `export`, a git-ignored `.env`, or a Docker secret.
+2. **Place it** in a real secret location for wherever the code runs (§2): a shell
+   `export`, a git-ignored `.env`, a Docker secret, or a secret manager the Setup
+   script reads at start. **Not** a shared "Environment variables" box (plaintext) and
+   **not** hardcoded in a Setup script.
 3. **Base-URL gotcha** — some hosts (e.g. a Claude Code session) set
    `ANTHROPIC_BASE_URL` to an *agent* proxy. So the app doesn't inherit that, set
    `OSAI_ANTHROPIC_BASE_URL=https://api.anthropic.com` for the app (the provider
