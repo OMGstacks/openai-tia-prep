@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Health } from "@/lib/types";
@@ -38,6 +39,9 @@ export default function Dashboard() {
         </h1>
         <span className="sub">authorized-lab-only</span>
         <span style={{ flex: 1 }} />
+        <Link href="/exam" className="sub">
+          Exam mode →
+        </Link>
         <label>
           learner&nbsp;
           <input value={learner} size={12} onChange={(e) => onLearnerChange(e.target.value)} />

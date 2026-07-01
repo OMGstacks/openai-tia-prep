@@ -38,7 +38,8 @@ npm run dev                       # http://localhost:3000
 | Path | Role |
 |---|---|
 | `app/layout.tsx`, `app/page.tsx`, `app/globals.css` | App-Router shell + dark theme |
-| `components/Dashboard.tsx` | Learner state (localStorage), health banner, panel layout |
+| `app/exam/page.tsx` + `components/ExamRoom.tsx` | **Exam mode** (`/exam`) — start a timed multi-target engagement, attack each target + submit a finding, live countdown, then the scored report (findings + report weight) and retake plan |
+| `components/Dashboard.tsx` | Learner state (localStorage), health banner, panel layout, link to Exam mode |
 | `components/LabsPanel.tsx` | Attack a lab → two-signal grade → new-badge surfacing |
 | `components/TutorPanel.tsx` | Ask the tutor; renders grounded / abstained / refused + citations |
 | `components/ProgressPanel.tsx` | XP, readiness, weakness heatmap, badges |

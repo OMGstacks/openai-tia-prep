@@ -91,6 +91,42 @@ export interface CapstoneBrief {
   task: string;
 }
 
+export interface ExamSession {
+  session_id: string;
+  learner_id: string;
+  targets: string[];
+  started_at: number;
+  duration_seconds: number;
+  deadline: number;
+  submitted: string[];
+}
+
+export interface ExamSubmitResult {
+  lab_id?: string;
+  lab_passed?: boolean;
+  report_total?: number;
+  remaining?: number;
+  rejected?: string;
+}
+
+export interface RetakeItem {
+  lab: string;
+  skill: string;
+  reason: string;
+  recommend: string;
+}
+
+export interface ExamScore {
+  session_id: string;
+  score: number;
+  of: number;
+  passed: boolean;
+  findings: { passed: number; of: number; weight: number };
+  report: { avg_pct: number; weight: number };
+  missed_paths: string[];
+  retake_plan?: RetakeItem[];
+}
+
 export interface Flashcard {
   id: number;
   skill_tag: string;

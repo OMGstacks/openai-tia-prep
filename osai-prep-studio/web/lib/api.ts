@@ -3,6 +3,9 @@
 import type {
   CapstoneBrief,
   CapstoneScore,
+  ExamScore,
+  ExamSession,
+  ExamSubmitResult,
   Flashcard,
   Health,
   LabSummary,
@@ -45,6 +48,16 @@ export const api = {
   reviewCard: (card_id: number, grade: number) =>
     post<ReviewResult>("/flashcards/review", { card_id, grade }),
   leaderboard: () => j<LeaderboardRow[]>("/leaderboard"),
+  examStart: (learner_id: string, lab_ids?: string[]) =>
+    post<ExamSession>("/exam/start", { learner_id, lab_ids }),
+  examSubmit: (
+    sid: string,
+    lab_id: string,
+    transcript: Transcript[],
+    flag: string,
+    finding: Record<string, unknown>,
+  ) => post<ExamSubmitResult>(`/exam/${sid}/submit`, { lab_id, transcript, flag, finding }),
+  examScore: (sid: string) => j<ExamScore>(`/exam/${sid}/score`),
   capstone: () => j<CapstoneBrief>("/capstone"),
   capstoneScore: (findings: { owasp_id: string }[], escalation_chain: boolean) =>
     post<CapstoneScore>("/capstone/score", { findings, escalation_chain }),
